@@ -2,6 +2,18 @@
 
 Firmware portátil para diagnóstico WiFi/BLE e observação passiva usando ESP32, ILI9341 e XPT2046.
 
+## Ambiente de compilação alvo
+
+O projeto é mantido compatível com:
+
+- Arduino IDE 1.8.19 ou Arduino IDE 2.x
+- Arduino-ESP32 Core 2.0.16
+- TFT_eSPI 2.5+
+- XPT2046_Touchscreen 1.4+
+- ESP32 Dev Module
+- Flash 4 MB / Huge APP (3 MB No OTA / 1 MB SPIFFS)
+- PSRAM desativada
+
 ## O que está implementado
 
 ### WiFi
@@ -40,7 +52,7 @@ Firmware portátil para diagnóstico WiFi/BLE e observação passiva usando ESP3
 
 Os módulos são separados em arquivos `.h/.cpp` para evitar que a lógica de rádio, interface e armazenamento fique concentrada no sketch principal.
 
-`tools/audit_sources.py` verifica a estrutura dos fontes e procura alguns erros conhecidos de integração BLE/802.11.
+`tools/audit_sources.py` verifica a estrutura dos fontes e procura incompatibilidades conhecidas do ambiente ESP32 Core 2.0.16, incluindo retorno de `BLEScan::start()`, chamadas `drawRightString()` e segurança do callback promíscuo.
 
 `tools/update_oui.py` gera uma tabela OUI maior usando o registro público da IEEE. A versão compacta do repositório serve como fallback para não inflar o firmware sem necessidade.
 
@@ -84,21 +96,23 @@ Os módulos são separados em arquivos `.h/.cpp` para evitar que a lógica de r�
 | SELECT | 25 |
 | BACK | 26 |
 
-## Build
+## Arduino IDE
 
-Arduino IDE pode ser usado com as bibliotecas:
+Instale apenas estas bibliotecas externas:
 
 - TFT_eSPI 2.5+
 - XPT2046_Touchscreen 1.4+
 
-Também existe `platformio.ini` para build reproduzível.
+O projeto já fornece `User_Setup.h` para o ILI9341. No Arduino IDE, mantenha o `ESP32 Arduino Core` em 2.0.16 para usar exatamente as APIs esperadas pelo firmware.
+
+## Build alternativo
+
+Também existe `platformio.ini` para build reproduzível e o workflow em `.github/workflows/build.yml` executa verificações automáticas no GitHub Actions.
 
 ```bash
 python tools/audit_sources.py
 pio run -e esp32dev
 ```
-
-O workflow em `.github/workflows/build.yml` executa essas verificações automaticamente no GitHub Actions.
 
 ## Uso responsável
 
