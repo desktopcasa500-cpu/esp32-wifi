@@ -66,7 +66,7 @@ void uiHeader(const String& title, const String& status) {
   tft.drawString(title.substring(0, 29), 8, 8);
   if (status.length()) {
     tft.setTextColor(GOOD, BAR);
-    tft.drawRightString(status.substring(0, 8), 312, 8);
+    tft.drawRightString(status.substring(0, 8), 312, 8, 2);
   }
 }
 
@@ -76,7 +76,7 @@ void uiFooter() {
   tft.setTextColor(MUTED, BAR);
   tft.drawString("UP", 18, 219);
   tft.drawCentreString("SELECT", 160, 219, 2);
-  tft.drawRightString("DOWN", 302, 219);
+  tft.drawRightString("DOWN", 302, 219, 2);
 }
 
 void uiMessage(const String& text, const String& title) {
@@ -107,7 +107,7 @@ void uiMenu(const String items[], size_t count, int selected) {
     tft.drawString(String(i + 1) + "  " + items[i].substring(0, 28), 12, y);
   }
   tft.setTextColor(MUTED, BG);
-  tft.drawRightString(String(selected + 1) + "/" + String(count), 310, 196);
+  tft.drawRightString(String(selected + 1) + "/" + String(count), 310, 196, 2);
   uiFooter();
 }
 
@@ -120,7 +120,7 @@ void uiProgress(const String& title, const String& detail, uint8_t percent) {
   const int w = map(percent, 0, 100, 0, 300);
   if (w > 0) tft.fillRect(10, 96, w, 12, ACCENT);
   tft.setTextColor(MUTED, BG);
-  tft.drawRightString(String(percent) + "%", 310, 125);
+  tft.drawRightString(String(percent) + "%", 310, 125, 2);
   uiFooter();
 }
 
