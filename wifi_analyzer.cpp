@@ -3,6 +3,7 @@
 #include "ui.h"
 #include "buttons.h"
 #include "touch.h"
+#include "settings.h"
 #include "oui_db.h"
 
 static WifiSelection selection;
@@ -101,7 +102,7 @@ void wifiScan(bool showHidden) {
   }
 
   static int order[96];
-  const int count = buildOrder(total, order, 96, true);
+  const int count = buildOrder(total, order, 96, settings.sortByRssi);
   int selected = 0;
   bool done = false;
   drawScanList(order, count, selected, total);
