@@ -1,0 +1,7 @@
+# Arduino / PlatformIO
+.pio/
+.vscode/
+*.elf
+*.bin
+*.map
+build/
