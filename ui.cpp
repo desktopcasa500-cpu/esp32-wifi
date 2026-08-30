@@ -1,5 +1,7 @@
 #include "ui.h"
 #include "settings.h"
+#include "buttons.h"
+#include "touch.h"
 #include <WiFi.h>
 
 TFT_eSPI tft = TFT_eSPI();
@@ -32,6 +34,16 @@ static void wrapText(const String& text, int x, int y, int maxChars, int lineHei
   }
 }
 
+static void waitForMessageInput() {
+  delay(100);
+  while (true) {
+    const ButtonEvent b = buttonsRead();
+    const TouchEvent t = touchRead();
+    if (b != BE_NONE || t != TOUCH_NONE) break;
+    delay(10);
+  }
+}
+
 void uiBegin() {
   tft.init();
   tft.setRotation(1);
@@ -52,7 +64,6 @@ void uiHeader(const String& title, const String& status) {
   tft.drawFastHLine(0, 30, 320, ACCENT);
   tft.setTextColor(TEXT, BAR);
   tft.drawString(title.substring(0, 29), 8, 8);
-
   if (status.length()) {
     tft.setTextColor(GOOD, BAR);
     tft.drawRightString(status.substring(0, 8), 312, 8);
@@ -74,31 +85,27 @@ void uiMessage(const String& text, const String& title) {
   tft.setTextColor(TEXT, BG);
   wrapText(text, 8, 42, 39, 19);
   uiFooter();
+  waitForMessageInput();
 }
 
 void uiMenu(const String items[], size_t count, int selected) {
   tft.fillScreen(BG);
   uiHeader("ESP32 / TOOLKIT", WiFi.status() == WL_CONNECTED ? "LINK" : "LOCAL");
-
   const int pageSize = 7;
   const int page = selected / pageSize;
   const int first = page * pageSize;
   const int last = min((int)count, first + pageSize);
-
   for (int i = first; i < last; ++i) {
     const int row = i - first;
     const int y = 41 + row * 23;
     const bool active = i == selected;
-
     if (active) {
       tft.fillRoundRect(5, y - 3, 310, 20, 2, SELECTED);
       tft.drawFastVLine(5, y - 3, 20, ACCENT);
     }
-
     tft.setTextColor(active ? TFT_WHITE : TEXT, active ? SELECTED : BG);
     tft.drawString(String(i + 1) + "  " + items[i].substring(0, 28), 12, y);
   }
-
   tft.setTextColor(MUTED, BG);
   tft.drawRightString(String(selected + 1) + "/" + String(count), 310, 196);
   uiFooter();
