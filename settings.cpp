@@ -20,6 +20,10 @@ void settingsDefaults() {
   settings.bootAnimation = true;
   settings.debugSerial = true;
   settings.deviceName = "ESP32-WiFi-Toolkit";
+  settings.touchMinX = 200;
+  settings.touchMaxX = 3900;
+  settings.touchMinY = 200;
+  settings.touchMaxY = 3900;
 }
 
 void settingsLoad() {
@@ -41,6 +45,10 @@ void settingsLoad() {
   settings.bootAnimation = prefs.getBool("boot", settings.bootAnimation);
   settings.debugSerial = prefs.getBool("debug", settings.debugSerial);
   settings.deviceName = prefs.getString("name", settings.deviceName);
+  settings.touchMinX = prefs.getShort("tx0", settings.touchMinX);
+  settings.touchMaxX = prefs.getShort("tx1", settings.touchMaxX);
+  settings.touchMinY = prefs.getShort("ty0", settings.touchMinY);
+  settings.touchMaxY = prefs.getShort("ty1", settings.touchMaxY);
 
   prefs.end();
 
@@ -50,6 +58,10 @@ void settingsLoad() {
   settings.pingsPerDiagnostic = constrain(settings.pingsPerDiagnostic, 1, 10);
   settings.defaultChannel = constrain(settings.defaultChannel, 1, 13);
   settings.brightness = constrain(settings.brightness, 10, 255);
+  settings.touchMinX = constrain(settings.touchMinX, 0, 4095);
+  settings.touchMaxX = constrain(settings.touchMaxX, 0, 4095);
+  settings.touchMinY = constrain(settings.touchMinY, 0, 4095);
+  settings.touchMaxY = constrain(settings.touchMaxY, 0, 4095);
 }
 
 void settingsSave() {
@@ -69,6 +81,10 @@ void settingsSave() {
   prefs.putBool("boot", settings.bootAnimation);
   prefs.putBool("debug", settings.debugSerial);
   prefs.putString("name", settings.deviceName);
+  prefs.putShort("tx0", settings.touchMinX);
+  prefs.putShort("tx1", settings.touchMaxX);
+  prefs.putShort("ty0", settings.touchMinY);
+  prefs.putShort("ty1", settings.touchMaxY);
   prefs.end();
 }
 
