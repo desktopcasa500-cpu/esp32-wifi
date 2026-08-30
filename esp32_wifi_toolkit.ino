@@ -63,7 +63,8 @@ static void showSystem() {
 static void drawSettings(int selected) {
   const String names[] = {
     "WiFi scan", "BLE scan", "Brilho", "Canal padrao", "Redes ocultas",
-    "Auto-rescan", "BLE ativo", "Ordenar por RSSI", "Boot", "Debug", "Reset"
+    "Auto-rescan", "BLE ativo", "Ordenar por RSSI", "Boot", "Debug",
+    "Touch Cal", "Reset"
   };
   const int count = sizeof(names) / sizeof(names[0]);
   const int first = min(max(0, selected - 3), max(0, count - 7));
@@ -90,7 +91,8 @@ static void drawSettings(int selected) {
       case 7: value = yesNo(settings.sortByRssi); break;
       case 8: value = yesNo(settings.bootAnimation); break;
       case 9: value = yesNo(settings.debugSerial); break;
-      case 10: value = "DEFAULTS"; break;
+      case 10: value = "RUN"; break;
+      case 11: value = "DEFAULTS"; break;
     }
     tft.setTextColor(active ? TFT_CYAN : 0x7BEF, bg);
     tft.drawRightString(value, 307, y);
@@ -108,10 +110,10 @@ static void runSettings() {
   while (!done) {
     const ButtonEvent ev = readButton();
     if (ev == BE_PREV) {
-      selected = (selected + 10) % 11;
+      selected = (selected + 11) % 12;
       drawSettings(selected);
     } else if (ev == BE_NEXT) {
-      selected = (selected + 1) % 11;
+      selected = (selected + 1) % 12;
       drawSettings(selected);
     } else if (ev == BE_SELECT) {
       switch (selected) {
@@ -125,7 +127,16 @@ static void runSettings() {
         case 7: settings.sortByRssi = !settings.sortByRssi; break;
         case 8: settings.bootAnimation = !settings.bootAnimation; break;
         case 9: settings.debugSerial = !settings.debugSerial; break;
-        case 10: settingsReset(); uiToast("Defaults restored"); break;
+        case 10: {
+          TouchCalibration c{settings.touchMinX, settings.touchMaxX, settings.touchMinY, settings.touchMaxY};
+          if (touchCalibrate(c)) {
+            settings.touchMinX = c.minX; settings.touchMaxX = c.maxX;
+            settings.touchMinY = c.minY; settings.touchMaxY = c.maxY;
+            settingsSave();
+          }
+          break;
+        }
+        case 11: settingsReset(); touchSetCalibration({settings.touchMinX, settings.touchMaxX, settings.touchMinY, settings.touchMaxY}); uiSetBrightness(settings.brightness); uiToast("Defaults restored"); break;
       }
       settingsSave();
       drawSettings(selected);
@@ -278,6 +289,7 @@ void setup() {
   uiBegin();
   buttonsBegin();
   touchBegin();
+  touchSetCalibration({settings.touchMinX, settings.touchMaxX, settings.touchMinY, settings.touchMaxY});
   WiFi.mode(WIFI_STA);
   WiFi.disconnect(true);
   delay(100);
