@@ -1,0 +1,26 @@
+name: Build ESP32 WiFi Toolkit
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install PlatformIO
+        run: pip install platformio
+
+      - name: Audit source layout
+        run: python tools/audit_sources.py
+
+      - name: Build firmware
+        run: pio run -e esp32dev
