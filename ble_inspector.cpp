@@ -5,25 +5,24 @@
 #include <BLERemoteCharacteristic.h>
 #include "ui.h"
 
-static String propertyText(BLERemoteCharacteristic* characteristic) {
+static String propertyText(BLERemoteCharacteristic* c) {
   String p;
-  if (characteristic->canRead()) p += "R";
-  if (characteristic->canWrite()) p += p.length() ? "/W" : "W";
-  if (characteristic->canNotify()) p += p.length() ? "/N" : "N";
+  if (c->canRead()) p += "R";
+  if (c->canWrite()) p += p.length() ? "/W" : "W";
+  if (c->canNotify()) p += p.length() ? "/N" : "N";
   return p.length() ? p : "-";
 }
 
-static String hexPreview(const std::string& value) {
-  String out;
-  const size_t count = min<size_t>(value.length(), 18);
+static String hexPreview(const String& value) {
   static const char* hex = "0123456789ABCDEF";
-  for (size_t i = 0; i < count; ++i) {
-    const uint8_t c = static_cast<uint8_t>(value[i]);
+  const int count = min(value.length(), (unsigned int)18);
+  String out;
+  for (int i = 0; i < count; ++i) {
+    const uint8_t b = (uint8_t)value[i];
     if (i) out += ' ';
-    out += hex[c >> 4];
-    out += hex[c & 0x0F];
+    out += hex[b >> 4]; out += hex[b & 0x0F];
   }
-  if (value.length() > count) out += "...";
+  if ((int)value.length() > count) out += "...";
   return out;
 }
 
@@ -41,14 +40,13 @@ void bleInspectDevice(const String& address) {
   }
 
   tft.fillScreen(TFT_BLACK);
-  uiHeader("BLE / GATT");
+  uiHeader("BLE / GATT", "LIVE");
   tft.setTextColor(TFT_CYAN, TFT_BLACK);
   tft.drawString("Connecting...", 8, 48);
 
-  const BLEAddress target(address.c_str());
-  if (!client->connect(target)) {
-    uiMessage("Nao foi possivel conectar.\n\nConfirme que o dispositivo esta disponivel e autorizado.", "BLE / GATT");
+  if (!client->connect(BLEAddress(address.c_str()))) {
     delete client;
+    uiMessage("Nao foi possivel conectar.\n\nConfirme disponibilidade e autorizacao do dispositivo.", "BLE / GATT");
     return;
   }
 
@@ -61,15 +59,15 @@ void bleInspectDevice(const String& address) {
   }
 
   String report = "Endereco: " + address +
-                  "\nServicos: " + String(services->size()) + "\n\n";
-  uint8_t serviceCount = 0;
+                  "\nServicos: " + String(services->size()) +
+                  "\nUptime: " + String(millis() / 1000) + " s\n\n";
 
+  uint8_t serviceCount = 0;
   for (const auto& entry : *services) {
     if (serviceCount++ >= 5) {
       report += "... mais servicos\n";
       break;
     }
-
     BLERemoteService* service = entry.second;
     report += "S " + String(entry.first.c_str()) + "\n";
     auto* chars = service->getCharacteristics();
@@ -77,7 +75,7 @@ void bleInspectDevice(const String& address) {
 
     uint8_t charCount = 0;
     for (const auto& centry : *chars) {
-      if (charCount++ >= 4) {
+      if (charCount++ >= 5) {
         report += "  ... mais chars\n";
         break;
       }
@@ -85,12 +83,8 @@ void bleInspectDevice(const String& address) {
       report += "  C " + String(centry.first.c_str()) +
                 " [" + propertyText(c) + "]";
       if (c->canRead()) {
-        try {
-          std::string value = c->readValue();
-          report += "\n    " + hexPreview(value);
-        } catch (...) {
-          report += "\n    read failed";
-        }
+        const String value = c->readValue();
+        report += "\n    " + hexPreview(value);
       }
       report += "\n";
     }
