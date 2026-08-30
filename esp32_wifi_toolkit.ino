@@ -212,6 +212,20 @@ static void runDiagnostic() {
   runWifiDiagnostic(wifiLastSelectedSsid(), password);
 }
 
+static void showSelectedNetwork() {
+  const WifiSelection s = wifiLastSelection();
+  const int frequency = s.channel == 14 ? 2484 : 2407 + s.channel * 5;
+  uiMessage(
+    "SSID: " + (s.ssid.length() ? s.ssid : "<hidden>") +
+    "\nBSSID: " + s.bssid +
+    "\nCanal: " + String(s.channel) +
+    "\nFrequencia: " + String(frequency) + " MHz" +
+    "\nRSSI: " + String(s.rssi) + " dBm" +
+    "\nSeguranca: " + s.security,
+    "WIFI / DETAIL"
+  );
+}
+
 static void selectMenu() {
   switch (menuIndex) {
     case 0: wifiScan(settings.hiddenScan); break;
@@ -222,7 +236,7 @@ static void selectMenu() {
     case 2: showChannelScan(); break;
     case 3: showWifiSpectrum(); break;
     case 4: showHiddenNetworks(); break;
-    case 5: if (wifiHasSelection()) showNetworkDetail(0); else uiMessage("Selecione uma rede no WiFi Analyzer primeiro.", "WIFI / DETAIL"); break;
+    case 5: if (wifiHasSelection()) showSelectedNetwork(); else uiMessage("Selecione uma rede no WiFi Analyzer primeiro.", "WIFI / DETAIL"); break;
     case 6: showChannelOptimizer(); break;
     case 7: runDiagnostic(); break;
     case 8: runCaptivePortal(); break;
