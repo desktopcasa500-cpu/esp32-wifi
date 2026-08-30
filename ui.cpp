@@ -1,5 +1,6 @@
 #include "ui.h"
 #include "settings.h"
+#include <WiFi.h>
 
 TFT_eSPI tft = TFT_eSPI();
 
