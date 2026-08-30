@@ -1,13 +1,13 @@
 #pragma once
 #include <Arduino.h>
 
-// Base compacta de fabricantes mais comuns. Pode ser regenerada por tools/update_oui.py.
 struct OuiEntry {
   uint32_t prefix;
   const char* name;
 };
 
-static const OuiEntry OUI_DB[] PROGMEM = {
+// Base compacta. tools/update_oui.py pode gerar uma tabela maior a partir do registro IEEE.
+static const OuiEntry OUI_DB[] = {
   {0x001CB3, "Apple"}, {0x3C5AB4, "Apple"}, {0xF0D2F1, "Apple"},
   {0x001A11, "Google"}, {0xF4F5D8, "Google"}, {0xC0EEF4, "Samsung"},
   {0x002339, "Samsung"}, {0xA4D1D2, "Xiaomi"}, {0x6496B0, "Xiaomi"},
@@ -22,23 +22,22 @@ static const OuiEntry OUI_DB[] PROGMEM = {
 };
 
 static String ouiVendor(const String& bssid) {
-  if (bssid.length() < 8) return "Unknown";
   uint32_t prefix = 0;
   uint8_t digits = 0;
   for (size_t i = 0; i < bssid.length() && digits < 6; ++i) {
     const char c = bssid[i];
     if (c == ':' || c == '-') continue;
-    uint8_t v;
-    if (c >= '0' && c <= '9') v = c - '0';
-    else if (c >= 'A' && c <= 'F') v = c - 'A' + 10;
-    else if (c >= 'a' && c <= 'f') v = c - 'a' + 10;
+    uint8_t value;
+    if (c >= '0' && c <= '9') value = c - '0';
+    else if (c >= 'A' && c <= 'F') value = c - 'A' + 10;
+    else if (c >= 'a' && c <= 'f') value = c - 'a' + 10;
     else return "Unknown";
-    prefix = (prefix << 4) | v;
+    prefix = (prefix << 4) | value;
     ++digits;
   }
   if (digits != 6) return "Unknown";
   for (size_t i = 0; i < sizeof(OUI_DB) / sizeof(OUI_DB[0]); ++i) {
-    if (prefix == pgm_read_dword(&OUI_DB[i].prefix)) return String(pgm_read_ptr(&OUI_DB[i].name));
+    if (prefix == OUI_DB[i].prefix) return String(OUI_DB[i].name);
   }
   return "Unknown";
 }
