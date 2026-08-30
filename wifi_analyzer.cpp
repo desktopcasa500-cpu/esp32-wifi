@@ -3,6 +3,7 @@
 #include "ui.h"
 #include "buttons.h"
 #include "touch.h"
+#include "oui_db.h"
 
 static WifiSelection selection;
 
@@ -20,8 +21,6 @@ static String securityName(wifi_auth_mode_t mode) {
     case WIFI_AUTH_WPA2_ENTERPRISE: return "WPA2-ENT";
     case WIFI_AUTH_WPA3_PSK: return "WPA3";
     case WIFI_AUTH_WPA2_WPA3_PSK: return "WPA2/3";
-    case WIFI_AUTH_WPA3_ENT_192: return "WPA3-192";
-    case WIFI_AUTH_OWE: return "OWE";
     default: return "UNKNOWN";
   }
 }
@@ -32,13 +31,13 @@ static void saveSelection(int index) {
   selection.channel = WiFi.channel(index);
   selection.rssi = WiFi.RSSI(index);
   selection.security = securityName(WiFi.encryptionType(index));
+  selection.manufacturer = ouiVendor(selection.bssid);
 }
 
 static int buildOrder(int total, int* order, int capacity, bool sortByRssi) {
   const int count = min(total, capacity);
   for (int i = 0; i < count; ++i) order[i] = i;
   if (!sortByRssi) return count;
-
   for (int i = 1; i < count; ++i) {
     const int key = order[i];
     int j = i - 1;
@@ -54,7 +53,6 @@ static int buildOrder(int total, int* order, int capacity, bool sortByRssi) {
 static void drawScanList(const int* order, int count, int selected, int total) {
   tft.fillScreen(TFT_BLACK);
   uiHeader("WIFI / NETWORKS");
-
   const int shown = min(count, 7);
   const int first = min(max(0, selected - 3), max(0, count - shown));
 
@@ -66,7 +64,6 @@ static void drawScanList(const int* order, int count, int selected, int total) {
     if (!ssid.length()) ssid = "<hidden>";
     ssid.replace("\n", " ");
     if (ssid.length() > 18) ssid = ssid.substring(0, 18);
-
     const int y = 39 + row * 23;
     const uint16_t bg = active ? 0x2945 : TFT_BLACK;
     if (active) tft.fillRoundRect(5, y - 3, 310, 20, 2, bg);
@@ -112,7 +109,6 @@ void wifiScan(bool showHidden) {
   while (!done) {
     const ButtonEvent be = buttonsRead();
     const TouchEvent te = touchRead();
-
     if (be == BE_PREV || te == TOUCH_PREV) {
       selected = (selected + count - 1) % count;
       drawScanList(order, count, selected, total);
@@ -139,12 +135,12 @@ void wifiPrintDetails(int index) {
     uiMessage("Nenhuma rede disponivel.", "WIFI / DETAIL");
     return;
   }
-
   saveSelection(index);
   const int frequency = selection.channel == 14 ? 2484 : 2407 + selection.channel * 5;
   uiMessage(
     "SSID: " + (selection.ssid.length() ? selection.ssid : "<hidden>") +
     "\nBSSID: " + selection.bssid +
+    "\nFabricante: " + selection.manufacturer +
     "\nCanal: " + String(selection.channel) +
     "\nFrequencia: " + String(frequency) + " MHz" +
     "\nRSSI: " + String(selection.rssi) + " dBm" +
