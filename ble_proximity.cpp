@@ -2,54 +2,59 @@
 #include <BLEDevice.h>
 #include <BLEScan.h>
 #include "ui.h"
-#include "buttons.h"
-#include "touch.h"
 #include <math.h>
+#include <string.h>
 
-static float estimateDistance(int rssi) {
+namespace {
+const int PROXIMITY_THRESHOLD = -65;
+
+float estimateDistance(int rssi) {
   if (rssi >= 0) return 0.0f;
   const float txPower = -59.0f;
   const float pathLoss = 2.2f;
   return powf(10.0f, (txPower - rssi) / (10.0f * pathLoss));
 }
 
-static void drawGraph(const int16_t* history, int count, int threshold) {
+void drawGraph(const int16_t* history, uint8_t count, int lastRssi) {
   tft.fillScreen(TFT_BLACK);
   uiHeader("BLE / PROXIMITY", "LIVE");
   tft.setTextColor(0x7BEF, TFT_BLACK);
-  tft.drawString("RSSI dBm", 8, 37);
+  tft.drawString("RSSI history", 8, 38, 1);
 
-  const int left = 25, right = 312, top = 55, bottom = 170;
-  tft.drawRect(left, top, right - left, bottom - top, 0x39C7);
+  const int left = 15, top = 57, width = 290, height = 105;
+  tft.drawRect(left, top, width, height, 0x39C7);
 
-  const int yThreshold = map(constrain(threshold, -100, -30), -100, -30, bottom - 4, top + 4);
-  for (int x = left + 1; x < right - 1; x += 4) {
-    tft.drawFastHLine(x, yThreshold, 3, 0xF800);
+  const int thresholdY = map(constrain(PROXIMITY_THRESHOLD, -100, -30), -100, -30,
+                             top + height - 3, top + 3);
+  for (int x = left + 2; x < left + width - 2; x += 5) {
+    tft.drawFastHLine(x, thresholdY, 3, TFT_RED);
   }
 
   if (count > 1) {
-    for (int i = 1; i < count; ++i) {
-      const int x1 = map(i - 1, 0, max(1, count - 1), left + 2, right - 2);
-      const int x2 = map(i, 0, max(1, count - 1), left + 2, right - 2);
-      const int y1 = map(constrain((int)history[i - 1], -100, -30), -100, -30, bottom - 4, top + 4);
-      const int y2 = map(constrain((int)history[i], -100, -30), -100, -30, bottom - 4, top + 4);
+    for (uint8_t i = 1; i < count; ++i) {
+      const int x1 = map(i - 1, 0, max(1, (int)count - 1), left + 2, left + width - 3);
+      const int x2 = map(i, 0, max(1, (int)count - 1), left + 2, left + width - 3);
+      const int y1 = map(constrain((int)history[i - 1], -100, -30), -100, -30,
+                         top + height - 3, top + 3);
+      const int y2 = map(constrain((int)history[i], -100, -30), -100, -30,
+                         top + height - 3, top + 3);
       tft.drawLine(x1, y1, x2, y2, TFT_CYAN);
     }
   }
 
-  if (count > 0) {
-    const int rssi = history[count - 1];
+  if (lastRssi > -127) {
     tft.setTextColor(TFT_WHITE, TFT_BLACK);
-    tft.drawString(String(rssi) + " dBm", 8, 181);
-    tft.drawRightString(String(estimateDistance(rssi), 1) + " m", 310, 181, 2);
+    tft.drawString(String(lastRssi) + " dBm", 12, 172, 2);
+    tft.drawRightString(String(estimateDistance(lastRssi), 1) + " m", 308, 172, 2);
   }
   tft.setTextColor(0x7BEF, TFT_BLACK);
-  tft.drawString("threshold " + String(threshold) + " dBm", 8, 198);
+  tft.drawString("Threshold " + String(PROXIMITY_THRESHOLD) + " dBm", 12, 193, 1);
   uiFooter();
+}
 }
 
 void bleProximityMonitor(const String& address, uint32_t durationMs) {
-  if (address.length() < 10) {
+  if (address.length() != 17) {
     uiMessage("Endereco BLE invalido.", "BLE / PROXIMITY");
     return;
   }
@@ -60,46 +65,44 @@ void bleProximityMonitor(const String& address, uint32_t durationMs) {
   scan->setInterval(100);
   scan->setWindow(80);
 
-  int16_t history[100] = {};
-  int historyCount = 0;
+  int16_t history[100] = {0};
+  uint8_t historyCount = 0;
   int minRssi = 127;
   int maxRssi = -127;
+  int lastRssi = -127;
   uint32_t samples = 0;
-  const int threshold = -65;
-  const uint32_t endAt = millis() + durationMs;
+  const uint32_t started = millis();
 
-  while (millis() < endAt) {
+  while ((uint32_t)(millis() - started) < durationMs) {
+    if (uiReadInput() == BE_BACK) break;
+
     BLEScanResults results = scan->start(1, false);
     for (int i = 0; i < results.getCount(); ++i) {
-      BLEAdvertisedDevice d = results.getDevice(i);
-      const String seen = d.getAddress().toString().c_str();
+      BLEAdvertisedDevice device = results.getDevice(i);
+      const String seen = device.getAddress().toString().c_str();
       if (!seen.equalsIgnoreCase(address)) continue;
 
-      const int rssi = d.getRSSI();
-      if (historyCount < 100) history[historyCount++] = rssi;
-      else {
-        memmove(history, history + 1, sizeof(history) - sizeof(history[0]));
-        history[99] = rssi;
-      }
-      minRssi = min(minRssi, rssi);
-      maxRssi = max(maxRssi, rssi);
+      lastRssi = device.getRSSI();
+      minRssi = min(minRssi, lastRssi);
+      maxRssi = max(maxRssi, lastRssi);
       ++samples;
-      drawGraph(history, historyCount, threshold);
+
+      if (historyCount < 100) {
+        history[historyCount++] = static_cast<int16_t>(lastRssi);
+      } else {
+        memmove(history, history + 1, sizeof(history) - sizeof(history[0]));
+        history[99] = static_cast<int16_t>(lastRssi);
+      }
+      drawGraph(history, historyCount, lastRssi);
     }
     scan->clearResults();
-
-    const ButtonEvent be = buttonsRead();
-    const TouchEvent te = touchRead();
-    if (be == BE_BACK || te == TOUCH_BACK) break;
     delay(20);
   }
 
-  uiMessage(
-    "Target: " + address +
-    "\nSamples: " + String(samples) +
-    "\nMin RSSI: " + String(samples ? minRssi : 0) + " dBm" +
-    "\nMax RSSI: " + String(samples ? maxRssi : 0) + " dBm" +
-    "\nThreshold: " + String(threshold) + " dBm",
-    "BLE / RESULT"
-  );
+  uiMessage("Target: " + address +
+            "\nSamples: " + String(samples) +
+            "\nMin: " + String(samples ? minRssi : 0) + " dBm" +
+            "\nMax: " + String(samples ? maxRssi : 0) + " dBm" +
+            "\nThreshold: " + String(PROXIMITY_THRESHOLD) + " dBm",
+            "BLE / RESULT");
 }
