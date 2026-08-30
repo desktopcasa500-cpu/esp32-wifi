@@ -3,44 +3,54 @@
 #include "ui.h"
 
 void showChannelScan() {
-  int count[14] = {};
-
+  int count[14] = {0};
   WiFi.mode(WIFI_STA);
   WiFi.scanDelete();
-  const int n = WiFi.scanNetworks(false, true);
 
-  for (int i = 0; i < n; ++i) {
+  tft.fillScreen(TFT_BLACK);
+  uiHeader("WIFI / CHANNELS");
+  tft.setTextColor(TFT_CYAN, TFT_BLACK);
+  tft.drawString("Scanning 2.4 GHz...", 8, 50, 1);
+
+  const int total = WiFi.scanNetworks(false, true);
+  if (total < 0) {
+    WiFi.scanDelete();
+    uiMessage("Falha ao iniciar o scan.", "WIFI / CHANNELS");
+    return;
+  }
+
+  for (int i = 0; i < total; ++i) {
     const int ch = WiFi.channel(i);
     if (ch >= 1 && ch <= 13) ++count[ch];
   }
+  WiFi.scanDelete();
 
   tft.fillScreen(TFT_BLACK);
-  uiHeader("WIFI / CHANNEL LOAD");
-
+  uiHeader("WIFI / CHANNELS", String(total) + " NET");
   int maxCount = 1;
   for (int ch = 1; ch <= 13; ++ch) maxCount = max(maxCount, count[ch]);
 
-  const int baseY = 183;
-  const int chartTop = 55;
-  const int barW = 17;
-  const int gap = 7;
-
+  const int left = 6;
+  const int top = 50;
+  const int base = 183;
+  const int barW = 18;
+  const int gap = 5;
   for (int ch = 1; ch <= 13; ++ch) {
-    const int x = 7 + (ch - 1) * (barW + gap);
-    const int h = map(count[ch], 0, maxCount, 0, baseY - chartTop);
-
-    if (count[ch] == 0) tft.drawRect(x, chartTop, barW, baseY - chartTop, 0x39C7);
-    else tft.fillRect(x, baseY - h, barW, h, TFT_CYAN);
-
+    const int x = left + (ch - 1) * (barW + gap);
+    const int h = map(count[ch], 0, maxCount, 0, base - top);
+    if (count[ch] == 0) tft.drawRect(x, top, barW, base - top, 0x39C7);
+    else tft.fillRect(x, base - h, barW, h, TFT_CYAN);
     tft.setTextColor(TFT_WHITE, TFT_BLACK);
     tft.drawCentreString(String(ch), x + barW / 2, 188, 1);
-    tft.setTextColor(0x7BEF, TFT_BLACK);
-    if (count[ch] > 0) tft.drawCentreString(String(count[ch]), x + barW / 2, max(chartTop, baseY - h - 12), 1);
+    if (count[ch]) {
+      tft.setTextColor(0x7BEF, TFT_BLACK);
+      tft.drawCentreString(String(count[ch]), x + barW / 2, max(top, base - h - 10), 1);
+    }
   }
 
   tft.setTextColor(0x7BEF, TFT_BLACK);
-  tft.drawString(String(n) + " networks", 8, 38);
-  tft.drawString("1 / 6 / 11  recommended", 8, 202);
+  tft.drawString("Menor ocupacao = melhor candidato", 8, 201, 1);
   uiFooter();
-  WiFi.scanDelete();
+
+  while (uiReadInput() == BE_NONE) delay(8);
 }
