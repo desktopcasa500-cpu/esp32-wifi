@@ -7,6 +7,7 @@ struct WifiSelection {
   uint8_t channel;
   int rssi;
   String security;
+  String manufacturer;
 };
 
 void wifiScan(bool showHidden = true);
