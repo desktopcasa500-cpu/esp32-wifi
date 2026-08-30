@@ -4,8 +4,7 @@
 #include "buttons.h"
 #include "touch.h"
 
-static String lastSsid;
-static String lastBssid;
+static WifiSelection selection;
 
 static int signalPercent(int rssi) {
   return constrain(map(rssi, -95, -35, 0, 100), 0, 100);
@@ -23,6 +22,14 @@ static String securityName(wifi_auth_mode_t mode) {
     case WIFI_AUTH_WPA2_WPA3_PSK: return "WPA2/3";
     default: return "UNKNOWN";
   }
+}
+
+static void saveSelection(int index) {
+  selection.ssid = WiFi.SSID(index);
+  selection.bssid = WiFi.BSSIDstr(index);
+  selection.channel = WiFi.channel(index);
+  selection.rssi = WiFi.RSSI(index);
+  selection.security = securityName(WiFi.encryptionType(index));
 }
 
 static void drawScanList(int selected, int total) {
@@ -90,8 +97,7 @@ void wifiScan(bool showHidden) {
       selected = (selected + 1) % total;
       drawScanList(selected, total);
     } else if (be == BE_SELECT || te == TOUCH_SELECT) {
-      lastSsid = WiFi.SSID(selected);
-      lastBssid = WiFi.BSSIDstr(selected);
+      saveSelection(selected);
       wifiPrintDetails(selected);
       delay(120);
       drawScanList(selected, total);
@@ -112,25 +118,22 @@ void wifiPrintDetails(int index) {
     return;
   }
 
-  String ssid = WiFi.SSID(index);
-  if (!ssid.length()) ssid = "<hidden>";
-  lastSsid = WiFi.SSID(index);
-  lastBssid = WiFi.BSSIDstr(index);
-  const int channel = WiFi.channel(index);
-  const int frequency = channel == 14 ? 2484 : 2407 + channel * 5;
+  saveSelection(index);
+  const int frequency = selection.channel == 14 ? 2484 : 2407 + selection.channel * 5;
 
   uiMessage(
-    "SSID: " + ssid +
-    "\nBSSID: " + WiFi.BSSIDstr(index) +
-    "\nCanal: " + String(channel) +
+    "SSID: " + (selection.ssid.length() ? selection.ssid : "<hidden>") +
+    "\nBSSID: " + selection.bssid +
+    "\nCanal: " + String(selection.channel) +
     "\nFrequencia: " + String(frequency) + " MHz" +
-    "\nRSSI: " + String(WiFi.RSSI(index)) + " dBm" +
-    "\nQualidade: " + String(signalPercent(WiFi.RSSI(index))) + "%" +
-    "\nSeguranca: " + securityName(WiFi.encryptionType(index)),
+    "\nRSSI: " + String(selection.rssi) + " dBm" +
+    "\nQualidade: " + String(signalPercent(selection.rssi)) + "%" +
+    "\nSeguranca: " + selection.security,
     "WIFI / DETAIL"
   );
 }
 
-String wifiLastSelectedSsid() { return lastSsid; }
-String wifiLastSelectedBssid() { return lastBssid; }
-bool wifiHasSelection() { return lastBssid.length() > 0; }
+WifiSelection wifiLastSelection() { return selection; }
+bool wifiHasSelection() { return selection.bssid.length() > 0; }
+String wifiLastSelectedSsid() { return selection.ssid; }
+String wifiLastSelectedBssid() { return selection.bssid; }
