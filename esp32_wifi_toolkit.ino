@@ -38,11 +38,10 @@ void renderMenu() {
   uiMenu(MENU, MENU_COUNT, menuIndex);
 }
 
-bool readLineFromSerial(String& out, uint32_t timeoutMs) {
+bool readSerialLine(String& out, uint32_t timeoutMs) {
   out = "";
-  Serial.setTimeout(50);
-  const uint32_t start = millis();
-  while ((uint32_t)(millis() - start) < timeoutMs) {
+  const uint32_t started = millis();
+  while ((uint32_t)(millis() - started) < timeoutMs) {
     while (Serial.available()) {
       const char c = static_cast<char>(Serial.read());
       if (c == '\n' || c == '\r') {
@@ -59,19 +58,18 @@ bool readLineFromSerial(String& out, uint32_t timeoutMs) {
 
 bool askPassword(const String& ssid, String& password, const String& title) {
   while (Serial.available()) Serial.read();
-  uiMessage("Rede: " + ssid + "\n\nDigite a senha no monitor serial e pressione ENTER.\nA senha nao sera armazenada.", title);
-  return readLineFromSerial(password, 60000);
+  uiMessage("Rede: " + ssid + "\n\nDigite a senha no Monitor Serial e pressione ENTER.\nA senha nao sera armazenada.", title);
+  return readSerialLine(password, 60000);
 }
 
 void showSystem() {
-  const uint32_t flash = ESP.getFlashChipSize();
   String text;
   text.reserve(220);
   text += "Toolkit v9.0\n\n";
   text += "CPU: " + String(getCpuFrequencyMhz()) + " MHz\n";
   text += "Heap: " + String(ESP.getFreeHeap()) + " B\n";
   text += "Heap minimo: " + String(ESP.getMinFreeHeap()) + " B\n";
-  text += "Flash: " + String(flash / 1024 / 1024) + " MB\n";
+  text += "Flash: " + String(ESP.getFlashChipSize() / 1024 / 1024) + " MB\n";
   text += "MAC: " + WiFi.macAddress() + "\n";
   text += "Uptime: " + String(millis() / 1000) + " s";
   uiMessage(text, "SYSTEM / STATUS");
@@ -167,8 +165,8 @@ void runSettings() {
 
 void runPacketMonitor() {
   packetMonitorStart(settings.defaultChannel);
-  const uint32_t start = millis();
-  while ((uint32_t)(millis() - start) < 30000U) {
+  const uint32_t started = millis();
+  while ((uint32_t)(millis() - started) < 30000U) {
     const PacketStats s = packetMonitorStats();
     tft.fillScreen(TFT_BLACK);
     uiHeader("WIFI / PACKETS", "PASSIVE");
@@ -182,7 +180,6 @@ void runPacketMonitor() {
     tft.drawString("PPS    " + String(s.pps), 160, 110, 1);
     tft.setTextColor(0x7BEF, TFT_BLACK);
     tft.drawString("Channel " + String(settings.defaultChannel), 10, 146, 1);
-    tft.drawString("BACK to exit", 10, 188, 1);
     uiFooter();
     if (uiReadInput() == BE_BACK) break;
     delay(80);
@@ -192,8 +189,8 @@ void runPacketMonitor() {
 
 void runDeauthDetector() {
   deauthDetectorStart(settings.defaultChannel);
-  const uint32_t start = millis();
-  while ((uint32_t)(millis() - start) < 30000U) {
+  const uint32_t started = millis();
+  while ((uint32_t)(millis() - started) < 30000U) {
     tft.fillScreen(TFT_BLACK);
     uiHeader("WIFI / MGMT EVENTS", "PASSIVE");
     tft.setTextColor(TFT_WHITE, TFT_BLACK);
@@ -209,6 +206,20 @@ void runDeauthDetector() {
   }
   deauthDetectorStop();
 }
+}
+
+void setup() {
+  Serial.begin(115200);
+  settingsLoad();
+  buttonsBegin();
+  uiBegin();
+  touchBegin();
+  touchSetCalibration({settings.touchMinX, settings.touchMaxX, settings.touchMinY, settings.touchMaxY});
+  WiFi.mode(WIFI_STA);
+  WiFi.disconnect(false);
+  delay(100);
+  renderMenu();
+}
 
 void selectMenu() {
   switch (menuIndex) {
@@ -217,7 +228,7 @@ void selectMenu() {
     case 2: showChannelScan(); break;
     case 3: showWifiSpectrum(); break;
     case 4: showHiddenNetworks(); break;
-    case 5: if (wifiHasSelection()) wifiPrintDetails(0); else uiMessage("Select a network first.", "WIFI / DETAIL"); break;
+    case 5: if (wifiHasSelection()) wifiShowSelection(); else uiMessage("Select a network first.", "WIFI / DETAIL"); break;
     case 6: showChannelOptimizer(); break;
     case 7: {
       if (!wifiHasSelection()) { uiMessage("Select a network first.", "WIFI / DIAGNOSTIC"); break; }
@@ -247,10 +258,10 @@ void selectMenu() {
       bleAdvertiserStop();
       break;
     case 16: {
-      String password;
       while (Serial.available()) Serial.read();
-      uiMessage("Digite uma senha de teste no Serial.\nEla sera analisada apenas localmente.", "SECURITY / PASSWORD");
-      if (readLineFromSerial(password, 60000)) {
+      String password;
+      uiMessage("Digite uma senha de teste no Monitor Serial.\nEla sera analisada somente localmente.", "SECURITY / PASSWORD");
+      if (readSerialLine(password, 60000)) {
         const PasswordReport r = analyzePassword(password);
         String report = "Score: " + String(r.score) + "/100\n";
         report += "Entropy: " + String(r.entropy, 1) + " bits\n";
@@ -268,36 +279,13 @@ void selectMenu() {
   delay(100);
   renderMenu();
 }
-}
-
-void setup() {
-  Serial.begin(115200);
-  settingsLoad();
-  buttonsBegin();
-  uiBegin();
-  touchBegin();
-  touchSetCalibration({settings.touchMinX, settings.touchMaxX, settings.touchMinY, settings.touchMaxY});
-  WiFi.mode(WIFI_STA);
-  WiFi.disconnect(false);
-  delay(100);
-  renderMenu();
-}
 
 void loop() {
   switch (uiReadInput()) {
-    case BE_PREV:
-      menuIndex = (menuIndex + MENU_COUNT - 1) % MENU_COUNT;
-      renderMenu();
-      break;
-    case BE_NEXT:
-      menuIndex = (menuIndex + 1) % MENU_COUNT;
-      renderMenu();
-      break;
-    case BE_SELECT:
-      selectMenu();
-      break;
-    default:
-      break;
+    case BE_PREV: menuIndex = (menuIndex + MENU_COUNT - 1) % MENU_COUNT; renderMenu(); break;
+    case BE_NEXT: menuIndex = (menuIndex + 1) % MENU_COUNT; renderMenu(); break;
+    case BE_SELECT: selectMenu(); break;
+    default: break;
   }
   delay(10);
 }
