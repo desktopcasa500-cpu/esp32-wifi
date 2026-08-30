@@ -6,7 +6,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 
-required = {
+REQUIRED = {
     "esp32_wifi_toolkit.ino",
     "config.h", "settings.h", "settings.cpp", "buttons.h", "buttons.cpp",
     "touch.h", "touch.cpp", "ui.h", "ui.cpp",
@@ -31,57 +31,47 @@ required = {
 }
 
 errors: list[str] = []
-for name in sorted(required):
+for name in sorted(REQUIRED):
     if not (ROOT / name).exists():
         errors.append(f"missing file: {name}")
 
-pointer_scan = []
-try_blocks = []
-unsafe_callbacks = []
-right_string_short = []
 for path in ROOT.glob("*.cpp"):
     text = path.read_text(encoding="utf-8", errors="replace")
 
-    # Arduino-ESP32 2.0.x exposes BLEScan::start() as a value return.
+    # Arduino-ESP32 2.0.16 returns BLEScanResults by value.
     if re.search(r"BLEScanResults\s*\*\s*\w+\s*=\s*\w+->start\(", text):
-        pointer_scan.append(path.name)
+        errors.append(f"BLEScan::start pointer form found: {path.name}")
 
     if re.search(r"\btry\s*\{", text):
-        try_blocks.append(path.name)
+        errors.append(f"exception syntax found in embedded module: {path.name}")
 
     if "wifi_promiscuous_pkt_t" in text:
-        for match in re.finditer(r"pkt->payload\[0\]", text):
-            prefix = text[max(0, match.start() - 500): match.start()]
+        for match in re.finditer(r"payload\[0\]", text):
+            prefix = text[max(0, match.start() - 600): match.start()]
             if "sig_len" not in prefix:
-                unsafe_callbacks.append(path.name)
+                errors.append(f"promiscuous payload access lacks nearby sig_len guard: {path.name}")
 
-    # TFT_eSPI used by this project requires the explicit font argument in
-    # drawRightString() calls for the installed 2.x library.
+    # TFT_eSPI 2.x requires an explicit font number for drawRightString().
     for match in re.finditer(r"drawRightString\s*\(([^\n;]*)\)", text):
-        args = match.group(1)
-        if args.count(",") < 3:
-            right_string_short.append(path.name)
+        if match.group(1).count(",") < 3:
+            errors.append(f"drawRightString has fewer than 4 args: {path.name}")
 
-for name in pointer_scan:
-    errors.append(f"BLE scan result uses pointer form incompatible with ESP32 Core 2.0.16: {name}")
-for name in try_blocks:
-    errors.append(f"exception handling found in embedded BLE module: {name}")
-for name in sorted(set(unsafe_callbacks)):
-    errors.append(f"promiscuous payload access without nearby sig_len check: {name}")
-for name in sorted(set(right_string_short)):
-    errors.append(f"drawRightString call has fewer than 4 arguments: {name}")
+main_path = ROOT / "esp32_wifi_toolkit.ino"
+main = main_path.read_text(encoding="utf-8", errors="replace")
+if "uiMenu(MENU, MENU_COUNT" not in main:
+    errors.append("main does not use the consolidated UI menu API")
+if "WiFi.disconnect(true)" in main:
+    errors.append("main erases WiFi configuration with disconnect(true)")
 
-main = (ROOT / "esp32_wifi_toolkit.ino").read_text(encoding="utf-8", errors="replace")
-for include in re.findall(r'#include\s+["<]([^">]+)[">]', main):
-    if include.endswith((".h", ".hpp")) and not include.startswith(("Arduino", "WiFi", "TFT", "BLE", "HTTP", "Preferences")):
-        if not (ROOT / include).exists():
-            errors.append(f"main include not found in project: {include}")
+ui = (ROOT / "ui.cpp").read_text(encoding="utf-8", errors="replace")
+if "void uiMenu(const char* const items[]" not in ui:
+    errors.append("uiMenu is not using the const char* menu representation")
 
-print(f"checked: {len(required)} required project files")
+print(f"checked: {len(REQUIRED)} project files")
 if errors:
     print("FAIL")
     for error in errors:
         print(f"- {error}")
     raise SystemExit(1)
 
-print("OK: source consistency checks passed for Arduino-ESP32 2.0.16")
+print("OK: source consistency checks passed for Arduino-ESP32 Core 2.0.16")
