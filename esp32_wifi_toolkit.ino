@@ -206,20 +206,6 @@ void runDeauthDetector() {
   }
   deauthDetectorStop();
 }
-}
-
-void setup() {
-  Serial.begin(115200);
-  settingsLoad();
-  buttonsBegin();
-  uiBegin();
-  touchBegin();
-  touchSetCalibration({settings.touchMinX, settings.touchMaxX, settings.touchMinY, settings.touchMaxY});
-  WiFi.mode(WIFI_STA);
-  WiFi.disconnect(false);
-  delay(100);
-  renderMenu();
-}
 
 void selectMenu() {
   switch (menuIndex) {
@@ -279,13 +265,36 @@ void selectMenu() {
   delay(100);
   renderMenu();
 }
+}
+
+void setup() {
+  Serial.begin(115200);
+  settingsLoad();
+  buttonsBegin();
+  uiBegin();
+  touchBegin();
+  touchSetCalibration({settings.touchMinX, settings.touchMaxX, settings.touchMinY, settings.touchMaxY});
+  WiFi.mode(WIFI_STA);
+  WiFi.disconnect(false);
+  delay(100);
+  renderMenu();
+}
 
 void loop() {
   switch (uiReadInput()) {
-    case BE_PREV: menuIndex = (menuIndex + MENU_COUNT - 1) % MENU_COUNT; renderMenu(); break;
-    case BE_NEXT: menuIndex = (menuIndex + 1) % MENU_COUNT; renderMenu(); break;
-    case BE_SELECT: selectMenu(); break;
-    default: break;
+    case BE_PREV:
+      menuIndex = (menuIndex + MENU_COUNT - 1) % MENU_COUNT;
+      renderMenu();
+      break;
+    case BE_NEXT:
+      menuIndex = (menuIndex + 1) % MENU_COUNT;
+      renderMenu();
+      break;
+    case BE_SELECT:
+      selectMenu();
+      break;
+    default:
+      break;
   }
   delay(10);
 }
