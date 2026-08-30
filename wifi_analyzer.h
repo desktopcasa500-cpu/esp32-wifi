@@ -12,6 +12,7 @@ struct WifiSelection {
 
 void wifiScan(bool showHidden = true);
 void wifiPrintDetails(int index);
+void wifiShowSelection();
 WifiSelection wifiLastSelection();
 bool wifiHasSelection();
 String wifiLastSelectedSsid();
