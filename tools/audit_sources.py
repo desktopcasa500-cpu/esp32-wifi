@@ -35,27 +35,41 @@ for name in sorted(required):
     if not (ROOT / name).exists():
         errors.append(f"missing file: {name}")
 
-old_scan = []
+pointer_scan = []
 try_blocks = []
 unsafe_callbacks = []
+right_string_short = []
 for path in ROOT.glob("*.cpp"):
     text = path.read_text(encoding="utf-8", errors="replace")
-    if re.search(r"BLEScanResults\s+\w+\s*=\s*\w+->start\(", text):
-        old_scan.append(path.name)
+
+    # Arduino-ESP32 2.0.x exposes BLEScan::start() as a value return.
+    if re.search(r"BLEScanResults\s*\*\s*\w+\s*=\s*\w+->start\(", text):
+        pointer_scan.append(path.name)
+
     if re.search(r"\btry\s*\{", text):
         try_blocks.append(path.name)
+
     if "wifi_promiscuous_pkt_t" in text:
         for match in re.finditer(r"pkt->payload\[0\]", text):
             prefix = text[max(0, match.start() - 500): match.start()]
             if "sig_len" not in prefix:
                 unsafe_callbacks.append(path.name)
 
-for name in old_scan:
-    errors.append(f"BLE scan result uses old value return form: {name}")
+    # TFT_eSPI used by this project requires the explicit font argument in
+    # drawRightString() calls for the installed 2.x library.
+    for match in re.finditer(r"drawRightString\s*\(([^\n;]*)\)", text):
+        args = match.group(1)
+        if args.count(",") < 3:
+            right_string_short.append(path.name)
+
+for name in pointer_scan:
+    errors.append(f"BLE scan result uses pointer form incompatible with ESP32 Core 2.0.16: {name}")
 for name in try_blocks:
     errors.append(f"exception handling found in embedded BLE module: {name}")
 for name in sorted(set(unsafe_callbacks)):
     errors.append(f"promiscuous payload access without nearby sig_len check: {name}")
+for name in sorted(set(right_string_short)):
+    errors.append(f"drawRightString call has fewer than 4 arguments: {name}")
 
 main = (ROOT / "esp32_wifi_toolkit.ino").read_text(encoding="utf-8", errors="replace")
 for include in re.findall(r'#include\s+["<]([^">]+)[">]', main):
@@ -70,4 +84,4 @@ if errors:
         print(f"- {error}")
     raise SystemExit(1)
 
-print("OK: source consistency checks passed")
+print("OK: source consistency checks passed for Arduino-ESP32 2.0.16")
