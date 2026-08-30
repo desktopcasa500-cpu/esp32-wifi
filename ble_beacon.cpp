@@ -6,7 +6,7 @@
 #include "buttons.h"
 #include "touch.h"
 
-static String classify(const BLEAdvertisedDevice& d) {
+static String classify(BLEAdvertisedDevice& d) {
   if (!d.haveManufacturerData()) return "BLE";
   const std::string m = d.getManufacturerData();
   if (m.size() >= 25 && (uint8_t)m[0] == 0x4C && (uint8_t)m[1] == 0x00 &&
@@ -18,7 +18,6 @@ static String classify(const BLEAdvertisedDevice& d) {
     if (frame == 0x00) return "Eddy TLM";
     return "Eddystone";
   }
-  if (m.size() >= 4 && (uint8_t)m[0] == 0xFF && (uint8_t)m[1] == 0xFF) return "Vendor";
   return "Manufacturer";
 }
 
@@ -29,7 +28,8 @@ static String hexPart(const std::string& m, size_t start, size_t length) {
   for (size_t i = start; i < end; ++i) {
     if (out.length()) out += ' ';
     const uint8_t b = (uint8_t)m[i];
-    out += hex[b >> 4]; out += hex[b & 0x0F];
+    out += hex[b >> 4];
+    out += hex[b & 0x0F];
   }
   return out;
 }
@@ -42,21 +42,21 @@ void beaconDetect(uint32_t seconds) {
   scan->setInterval(100);
   scan->setWindow(80);
 
-  BLEScanResults* results = scan->start(seconds, false);
-  const int total = results ? results->getCount() : 0;
+  BLEScanResults results = scan->start(seconds, false);
+  const int total = results.getCount();
   tft.fillScreen(TFT_BLACK);
   uiHeader("BLE / BEACONS");
 
   int shown = 0;
-  for (int i = 0; results && i < total && shown < 7; ++i) {
-    BLEAdvertisedDevice d = results->getDevice(i);
+  for (int i = 0; i < total && shown < 7; ++i) {
+    BLEAdvertisedDevice d = results.getDevice(i);
     const String type = classify(d);
     if (type == "BLE") continue;
     const int y = 40 + shown * 23;
     tft.setTextColor(TFT_WHITE, TFT_BLACK);
     tft.drawString(type.substring(0, 14), 8, y);
     tft.setTextColor(TFT_CYAN, TFT_BLACK);
-    tft.drawRightString(String(d.getRSSI()) + "dBm", 310, y);
+    tft.drawRightString(String(d.getRSSI()) + "dBm", 310, y, 2);
     tft.setTextColor(0x7BEF, TFT_BLACK);
     if (d.haveManufacturerData()) {
       const std::string m = d.getManufacturerData();
@@ -67,7 +67,7 @@ void beaconDetect(uint32_t seconds) {
 
   if (!shown) tft.drawString("Nenhum beacon reconhecido.", 8, 52);
   tft.setTextColor(0x7BEF, TFT_BLACK);
-  tft.drawRightString(String(total) + " devices", 310, 196);
+  tft.drawRightString(String(total) + " devices", 310, 196, 2);
   uiFooter();
   scan->clearResults();
 
