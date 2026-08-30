@@ -33,7 +33,7 @@ static const String menu[] = {
 static const size_t menuCount = sizeof(menu) / sizeof(menu[0]);
 
 static ButtonEvent readButton() {
-  ButtonEvent b = buttonsRead();
+  const ButtonEvent b = buttonsRead();
   if (b != BE_NONE) return b;
   switch (touchRead()) {
     case TOUCH_PREV: return BE_PREV;
@@ -44,13 +44,13 @@ static ButtonEvent readButton() {
   }
 }
 
-static String boolText(bool value) { return value ? "ON" : "OFF"; }
+static String yesNo(bool value) { return value ? "ON" : "OFF"; }
 
 static void showSystem() {
   uiMessage(
     "ESP32 WiFi Toolkit v9.0\n\n"
     "CPU: " + String(getCpuFrequencyMhz()) + " MHz\n" +
-    "Heap livre: " + String(ESP.getFreeHeap()) + " B\n" +
+    "Heap: " + String(ESP.getFreeHeap()) + " B\n" +
     "Heap minimo: " + String(ESP.getMinFreeHeap()) + " B\n" +
     "Flash: " + String(ESP.getFlashChipSize() / 1024 / 1024) + " MB\n" +
     "MAC: " + WiFi.macAddress() + "\n" +
@@ -65,17 +65,16 @@ static void drawSettings(int selected) {
     "Auto-rescan", "BLE ativo", "Ordenar por RSSI", "Boot", "Debug", "Reset"
   };
   const int count = sizeof(names) / sizeof(names[0]);
+  const int first = min(max(0, selected - 3), max(0, count - 7));
 
   tft.fillScreen(TFT_BLACK);
   uiHeader("SETTINGS");
-  const int first = min(max(0, selected - 3), max(0, count - 7));
-  const int last = min(count, first + 7);
-
-  for (int i = first; i < last; ++i) {
+  for (int i = first; i < min(count, first + 7); ++i) {
     const bool active = i == selected;
     const int y = 40 + (i - first) * 23;
-    if (active) tft.fillRoundRect(5, y - 3, 310, 20, 2, 0x2945);
-    tft.setTextColor(active ? TFT_WHITE : 0xD6BA, active ? 0x2945 : TFT_BLACK);
+    const uint16_t bg = active ? 0x2945 : TFT_BLACK;
+    if (active) tft.fillRoundRect(5, y - 3, 310, 20, 2, bg);
+    tft.setTextColor(active ? TFT_WHITE : 0xD6BA, bg);
     tft.drawString(names[i], 12, y);
 
     String value;
@@ -84,18 +83,17 @@ static void drawSettings(int selected) {
       case 1: value = String(settings.bleScanMs / 1000) + "s"; break;
       case 2: value = String(settings.brightness); break;
       case 3: value = "CH " + String(settings.defaultChannel); break;
-      case 4: value = boolText(settings.hiddenScan); break;
-      case 5: value = boolText(settings.autoRescan); break;
-      case 6: value = boolText(settings.activeBleScan); break;
-      case 7: value = boolText(settings.sortByRssi); break;
-      case 8: value = boolText(settings.bootAnimation); break;
-      case 9: value = boolText(settings.debugSerial); break;
+      case 4: value = yesNo(settings.hiddenScan); break;
+      case 5: value = yesNo(settings.autoRescan); break;
+      case 6: value = yesNo(settings.activeBleScan); break;
+      case 7: value = yesNo(settings.sortByRssi); break;
+      case 8: value = yesNo(settings.bootAnimation); break;
+      case 9: value = yesNo(settings.debugSerial); break;
       case 10: value = "DEFAULTS"; break;
     }
-    tft.setTextColor(active ? TFT_CYAN : 0x7BEF, active ? 0x2945 : TFT_BLACK);
+    tft.setTextColor(active ? TFT_CYAN : 0x7BEF, bg);
     tft.drawRightString(value, 307, y);
   }
-
   tft.setTextColor(0x7BEF, TFT_BLACK);
   tft.drawRightString(String(selected + 1) + "/" + String(count), 310, 196);
   uiFooter();
@@ -154,7 +152,7 @@ static void runPacketMonitor() {
     tft.drawString("PPS       " + String(s.pps), 160, 89);
     tft.drawString("CH        " + String(settings.defaultChannel), 160, 111);
     tft.setTextColor(0x7BEF, TFT_BLACK);
-    tft.drawString("BACK para sair", 10, 190);
+    tft.drawString("BACK encerra", 10, 188);
     uiFooter();
     if (readButton() == BE_BACK) break;
     delay(80);
@@ -174,7 +172,7 @@ static void runDeauthDetector() {
     tft.drawString("Last RSSI    " + String(deauthLastRssi()) + " dBm", 10, 105);
     tft.drawString("Channel      " + String(deauthChannel()), 10, 130);
     tft.setTextColor(0x7BEF, TFT_BLACK);
-    tft.drawString("Somente monitoramento passivo", 10, 165);
+    tft.drawString("Monitoramento passivo", 10, 165);
     tft.drawString("BACK encerra", 10, 185);
     uiFooter();
     if (readButton() == BE_BACK) break;
@@ -194,13 +192,27 @@ static void selectMenu() {
     case 6: runDeauthDetector(); break;
     case 7: bleScan(settings.bleScanMs / 1000); break;
     case 8: beaconDetect(settings.bleScanMs / 1000); break;
-    case 9: bleInspectDevice("00:00:00:00:00:00"); break;
-    case 10: bleProximityMonitor("00:00:00:00:00:00", 5000); break;
-    case 11: bleAdvertiserStart(0, 500); uiMessage("BLE advertiser ativo.\nPerfil: Generico\nIntervalo: 500 ms\n\nBACK retorna ao menu.", "BLE / ADVERTISER"); bleAdvertiserStop(); break;
-    case 12: { PasswordReport r = analyzePassword("exemplo-senha-123"); uiMessage("Analise offline\nScore: " + String(r.score) + "/100\nEntropia: " + String(r.entropy, 1) + " bits\nComum: " + String(r.common ? "sim" : "nao") + "\nSequencia: " + String(r.hasSequence ? "sim" : "nao") + "\n\n" + passwordAdvice(r), "SECURITY / PASSWORD"); } break;
+    case 9:
+      if (bleHasSelection()) bleInspectDevice(bleLastSelectedAddress());
+      else uiMessage("Nenhum alvo BLE selecionado.\n\nAbra BLE Scanner e selecione um dispositivo primeiro.", "BLE / GATT");
+      break;
+    case 10:
+      if (bleHasSelection()) bleProximityMonitor(bleLastSelectedAddress(), 15000);
+      else uiMessage("Nenhum alvo BLE selecionado.\n\nAbra BLE Scanner e selecione um dispositivo primeiro.", "BLE / PROXIMITY");
+      break;
+    case 11:
+      bleAdvertiserStart(0, 500);
+      uiMessage("Advertiser ativo\n\nPerfil: generico\nIntervalo: 500 ms\nNome: " + settings.deviceName + "\n\nBACK retorna ao menu.", "BLE / ADVERTISER");
+      bleAdvertiserStop();
+      break;
+    case 12: {
+      PasswordReport r = analyzePassword("exemplo-senha-123");
+      uiMessage("Analise offline\nScore: " + String(r.score) + "/100\nEntropia: " + String(r.entropy, 1) + " bits\nComum: " + String(r.common ? "sim" : "nao") + "\nSequencia: " + String(r.hasSequence ? "sim" : "nao") + "\n\n" + passwordAdvice(r), "SECURITY / PASSWORD");
+      break;
+    }
     case 13: showSystem(); break;
     case 14: runSettings(); break;
-    case 15: uiMessage("ESP32 WiFi Toolkit v9.0\n\nDiagnostico WiFi/BLE, observacao passiva e utilitarios locais.\n\nNao realiza ataques ou captura de credenciais.", "ABOUT"); break;
+    case 15: uiMessage("ESP32 WiFi Toolkit v9.0\n\nDiagnostico WiFi/BLE, observacao passiva e utilitarios locais.\n\nSem ataques, captura de credenciais ou interferencia intencional.", "ABOUT"); break;
   }
   delay(150);
   render();
