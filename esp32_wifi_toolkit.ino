@@ -95,10 +95,10 @@ static void drawSettings(int selected) {
       case 11: value = "DEFAULTS"; break;
     }
     tft.setTextColor(active ? TFT_CYAN : 0x7BEF, bg);
-    tft.drawRightString(value, 307, y);
+    tft.drawRightString(value, 307, y, 2);
   }
   tft.setTextColor(0x7BEF, TFT_BLACK);
-  tft.drawRightString(String(selected + 1) + "/" + String(count), 310, 196);
+  tft.drawRightString(String(selected + 1) + "/" + String(count), 310, 196, 2);
   uiFooter();
 }
 
@@ -132,7 +132,6 @@ static void runSettings() {
           if (touchCalibrate(c)) {
             settings.touchMinX = c.minX; settings.touchMaxX = c.maxX;
             settings.touchMinY = c.minY; settings.touchMaxY = c.maxY;
-            settingsSave();
           }
           break;
         }
@@ -225,10 +224,15 @@ static void runDiagnostic() {
 
 static void showSelectedNetwork() {
   const WifiSelection s = wifiLastSelection();
+  if (!s.bssid.length()) {
+    uiMessage("Selecione uma rede no WiFi Analyzer primeiro.", "WIFI / DETAIL");
+    return;
+  }
   const int frequency = s.channel == 14 ? 2484 : 2407 + s.channel * 5;
   uiMessage(
     "SSID: " + (s.ssid.length() ? s.ssid : "<hidden>") +
     "\nBSSID: " + s.bssid +
+    "\nFabricante: " + s.manufacturer +
     "\nCanal: " + String(s.channel) +
     "\nFrequencia: " + String(frequency) + " MHz" +
     "\nRSSI: " + String(s.rssi) + " dBm" +
@@ -240,14 +244,11 @@ static void showSelectedNetwork() {
 static void selectMenu() {
   switch (menuIndex) {
     case 0: wifiScan(settings.hiddenScan); break;
-    case 1:
-      if (wifiHasSelection()) showSignalMeter(wifiLastSelectedSsid(), wifiLastSelectedBssid(), 30000);
-      else uiMessage("Selecione uma rede no WiFi Analyzer primeiro.", "WIFI / SIGNAL");
-      break;
+    case 1: if (wifiHasSelection()) showSignalMeter(wifiLastSelectedSsid(), wifiLastSelectedBssid(), 30000); else uiMessage("Selecione uma rede no WiFi Analyzer primeiro.", "WIFI / SIGNAL"); break;
     case 2: showChannelScan(); break;
     case 3: showWifiSpectrum(); break;
     case 4: showHiddenNetworks(); break;
-    case 5: if (wifiHasSelection()) showSelectedNetwork(); else uiMessage("Selecione uma rede no WiFi Analyzer primeiro.", "WIFI / DETAIL"); break;
+    case 5: showSelectedNetwork(); break;
     case 6: showChannelOptimizer(); break;
     case 7: runDiagnostic(); break;
     case 8: runCaptivePortal(); break;
@@ -255,14 +256,8 @@ static void selectMenu() {
     case 10: runDeauthDetector(); break;
     case 11: bleScan(settings.bleScanMs / 1000); break;
     case 12: beaconDetect(settings.bleScanMs / 1000); break;
-    case 13:
-      if (bleHasSelection()) bleInspectDevice(bleLastSelectedAddress());
-      else uiMessage("Nenhum alvo BLE selecionado.\n\nAbra BLE Scanner e selecione um dispositivo primeiro.", "BLE / GATT");
-      break;
-    case 14:
-      if (bleHasSelection()) bleProximityMonitor(bleLastSelectedAddress(), 15000);
-      else uiMessage("Nenhum alvo BLE selecionado.\n\nAbra BLE Scanner e selecione um dispositivo primeiro.", "BLE / PROXIMITY");
-      break;
+    case 13: if (bleHasSelection()) bleInspectDevice(bleLastSelectedAddress()); else uiMessage("Nenhum alvo BLE selecionado.\n\nAbra BLE Scanner e selecione um dispositivo primeiro.", "BLE / GATT"); break;
+    case 14: if (bleHasSelection()) bleProximityMonitor(bleLastSelectedAddress(), 15000); else uiMessage("Nenhum alvo BLE selecionado.\n\nAbra BLE Scanner e selecione um dispositivo primeiro.", "BLE / PROXIMITY"); break;
     case 15:
       bleAdvertiserStart(0, 500);
       uiMessage("Advertiser ativo\n\nPerfil: generico\nIntervalo: 500 ms\nNome: " + settings.deviceName + "\n\nBACK retorna ao menu.", "BLE / ADVERTISER");
