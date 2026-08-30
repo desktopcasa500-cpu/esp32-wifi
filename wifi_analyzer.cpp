@@ -4,6 +4,9 @@
 #include "buttons.h"
 #include "touch.h"
 
+static String lastSsid;
+static String lastBssid;
+
 static int signalPercent(int rssi) {
   return constrain(map(rssi, -95, -35, 0, 100), 0, 100);
 }
@@ -38,13 +41,13 @@ static void drawScanList(int selected, int total) {
     if (ssid.length() > 18) ssid = ssid.substring(0, 18);
 
     const int y = 39 + i * 23;
-    if (active) tft.fillRoundRect(5, y - 3, 310, 20, 2, 0x2945);
-    tft.setTextColor(active ? TFT_WHITE : 0xD6BA, active ? 0x2945 : TFT_BLACK);
+    const uint16_t bg = active ? 0x2945 : TFT_BLACK;
+    if (active) tft.fillRoundRect(5, y - 3, 310, 20, 2, bg);
+    tft.setTextColor(active ? TFT_WHITE : 0xD6BA, bg);
     tft.drawString(String(index + 1) + "  " + ssid, 12, y);
-    tft.setTextColor(TFT_CYAN, active ? 0x2945 : TFT_BLACK);
+    tft.setTextColor(TFT_CYAN, bg);
     tft.drawRightString(String(WiFi.RSSI(index)) + "dBm", 310, y);
-
-    tft.setTextColor(0x7BEF, active ? 0x2945 : TFT_BLACK);
+    tft.setTextColor(0x7BEF, bg);
     tft.drawString("CH " + String(WiFi.channel(index)) + "  " + String(signalPercent(WiFi.RSSI(index))) + "%  " + securityName(WiFi.encryptionType(index)), 22, y + 11);
   }
 
@@ -63,7 +66,7 @@ void wifiScan(bool showHidden) {
   uiHeader("WIFI / SCAN");
   tft.setTextColor(TFT_CYAN, TFT_BLACK);
   tft.drawString("Scanning 2.4 GHz...", 8, 46);
-  tft.drawString(showHidden ? "hidden: on" : "hidden: off", 8, 70);
+  tft.drawString(showHidden ? "hidden: on" : "hidden: off", 8, 68);
 
   const int total = WiFi.scanNetworks(false, showHidden);
   if (total <= 0) {
@@ -77,8 +80,8 @@ void wifiScan(bool showHidden) {
   drawScanList(selected, total);
 
   while (!done) {
-    ButtonEvent be = buttonsRead();
-    TouchEvent te = touchRead();
+    const ButtonEvent be = buttonsRead();
+    const TouchEvent te = touchRead();
 
     if (be == BE_PREV || te == TOUCH_PREV) {
       selected = (selected + total - 1) % total;
@@ -87,6 +90,8 @@ void wifiScan(bool showHidden) {
       selected = (selected + 1) % total;
       drawScanList(selected, total);
     } else if (be == BE_SELECT || te == TOUCH_SELECT) {
+      lastSsid = WiFi.SSID(selected);
+      lastBssid = WiFi.BSSIDstr(selected);
       wifiPrintDetails(selected);
       delay(120);
       drawScanList(selected, total);
@@ -109,6 +114,8 @@ void wifiPrintDetails(int index) {
 
   String ssid = WiFi.SSID(index);
   if (!ssid.length()) ssid = "<hidden>";
+  lastSsid = WiFi.SSID(index);
+  lastBssid = WiFi.BSSIDstr(index);
   const int channel = WiFi.channel(index);
   const int frequency = channel == 14 ? 2484 : 2407 + channel * 5;
 
@@ -123,3 +130,7 @@ void wifiPrintDetails(int index) {
     "WIFI / DETAIL"
   );
 }
+
+String wifiLastSelectedSsid() { return lastSsid; }
+String wifiLastSelectedBssid() { return lastBssid; }
+bool wifiHasSelection() { return lastBssid.length() > 0; }
