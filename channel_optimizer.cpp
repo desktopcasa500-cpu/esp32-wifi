@@ -2,40 +2,45 @@
 #include <WiFi.h>
 #include "ui.h"
 
+namespace {
+int channelScore(const int weighted[14], const int counts[14], int channel) {
+  int load = weighted[channel];
+  for (int other = 1; other <= 13; ++other) {
+    if (other == channel) continue;
+    const int distance = abs(other - channel);
+    if (distance < 5) load += (weighted[other] * (5 - distance)) / 5;
+  }
+
+  int score = 100 - load;
+  score -= counts[channel] * 3;
+  if (channel != 1 && channel != 6 && channel != 11) score -= 8;
+  return constrain(score, 0, 100);
+}
+}
+
 ChannelScore optimizeChannels() {
-  ChannelScore best{1, 0, 0};
-  int counts[14] = {};
-  int weighted[14] = {};
+  ChannelScore best = {1, 0, 0};
+  int counts[14] = {0};
+  int weighted[14] = {0};
 
   WiFi.mode(WIFI_STA);
   WiFi.scanDelete();
-  const int n = WiFi.scanNetworks(false, true);
-  for (int i = 0; i < n; ++i) {
-    const int ch = WiFi.channel(i);
-    if (ch < 1 || ch > 13) continue;
-    ++counts[ch];
-    const int rssi = WiFi.RSSI(i);
-    weighted[ch] += constrain(rssi + 100, 1, 70);
+  const int total = WiFi.scanNetworks(false, true);
+  if (total < 0) return best;
+
+  for (int i = 0; i < total; ++i) {
+    const int channel = WiFi.channel(i);
+    if (channel < 1 || channel > 13) continue;
+    ++counts[channel];
+    weighted[channel] += constrain(WiFi.RSSI(i) + 100, 1, 70);
   }
 
-  for (int ch = 1; ch <= 13; ++ch) {
-    int load = weighted[ch];
-    for (int other = 1; other <= 13; ++other) {
-      if (other == ch) continue;
-      const int distance = abs(other - ch);
-      if (distance < 5) {
-        const int factor = 5 - distance;
-        load += (weighted[other] * factor) / 5;
-      }
-    }
-
-    int score = constrain(100 - load, 0, 100);
-    if (ch != 1 && ch != 6 && ch != 11) score = max(0, score - 8);
-
+  for (int channel = 1; channel <= 13; ++channel) {
+    const int score = channelScore(weighted, counts, channel);
     if (score > best.score) {
-      best.channel = ch;
+      best.channel = channel;
       best.score = score;
-      best.networks = counts[ch];
+      best.networks = counts[channel];
     }
   }
 
@@ -44,12 +49,15 @@ ChannelScore optimizeChannels() {
 }
 
 void showChannelOptimizer() {
-  const ChannelScore b = optimizeChannels();
-  uiMessage(
-    "Melhor canal: CH " + String(b.channel) +
-    "\nScore: " + String(b.score) + "/100" +
-    "\nRedes no canal: " + String(b.networks) +
-    "\n\nO score considera RSSI e sobreposicao das redes vistas.\nRefaça a analise depois de alterar o roteador.",
-    "WIFI / OPTIMIZER"
-  );
+  const ChannelScore result = optimizeChannels();
+  String report;
+  report.reserve(260);
+  report += "Best channel: CH ";
+  report += String(result.channel);
+  report += "\nScore: ";
+  report += String(result.score);
+  report += "/100\nNetworks: ";
+  report += String(result.networks);
+  report += "\n\nUse CH1, CH6 or CH11 when possible.\nScore is based on observed RSSI and overlap.";
+  uiMessage(report, "WIFI / OPTIMIZER");
 }
