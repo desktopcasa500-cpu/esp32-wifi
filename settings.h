@@ -17,6 +17,10 @@ struct Settings {
   bool bootAnimation;
   bool debugSerial;
   String deviceName;
+  int16_t touchMinX;
+  int16_t touchMaxX;
+  int16_t touchMinY;
+  int16_t touchMaxY;
 };
 
 extern Settings settings;
