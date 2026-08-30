@@ -25,8 +25,9 @@
 
 static int menuIndex = 0;
 static const String menu[] = {
-  "WiFi Analyzer", "Channel Scanner", "Spectrum 2.4G", "Hidden Networks",
-  "Channel Optimizer", "Packet Monitor", "Deauth Detector", "BLE Scanner",
+  "WiFi Analyzer", "Signal Meter", "Channel Scanner", "Spectrum 2.4G",
+  "Hidden Networks", "Network Detail", "Channel Optimizer", "WiFi Diagnostic",
+  "Captive Portal", "Packet Monitor", "Deauth Detector", "BLE Scanner",
   "BLE Beacons", "BLE GATT", "BLE Proximity", "BLE Advertiser",
   "Password Strength", "System Info", "Settings", "About"
 };
@@ -139,7 +140,7 @@ static void runPacketMonitor() {
   packetMonitorStart(settings.defaultChannel);
   const uint32_t until = millis() + 5000;
   while (millis() < until) {
-    PacketStats s = packetMonitorStats();
+    const PacketStats s = packetMonitorStats();
     tft.fillScreen(TFT_BLACK);
     uiHeader("WIFI / PACKETS", "LIVE");
     tft.setTextColor(TFT_WHITE, TFT_BLACK);
@@ -181,38 +182,75 @@ static void runDeauthDetector() {
   deauthDetectorStop();
 }
 
+static void runCaptivePortal() {
+  if (!wifiHasSelection()) {
+    uiMessage("Selecione uma rede no WiFi Analyzer primeiro.", "WIFI / CAPTIVE");
+    return;
+  }
+  uiMessage("Rede: " + wifiLastSelectedSsid() + "\n\nA senha sera lida pela Serial e nao sera salva.\nDigite a senha e pressione ENTER.", "WIFI / CAPTIVE");
+  while (!Serial.available()) {
+    if (readButton() == BE_BACK) return;
+    delay(20);
+  }
+  const String password = Serial.readStringUntil('\n');
+  String report;
+  detectCaptivePortal(wifiLastSelectedSsid(), password, report);
+  uiMessage(report, "WIFI / CAPTIVE RESULT");
+}
+
+static void runDiagnostic() {
+  if (!wifiHasSelection()) {
+    uiMessage("Selecione uma rede no WiFi Analyzer primeiro.", "WIFI / DIAGNOSTIC");
+    return;
+  }
+  uiMessage("Rede: " + wifiLastSelectedSsid() + "\n\nA senha sera lida pela Serial e nao sera salva.\nDigite a senha e pressione ENTER.", "WIFI / DIAGNOSTIC");
+  while (!Serial.available()) {
+    if (readButton() == BE_BACK) return;
+    delay(20);
+  }
+  const String password = Serial.readStringUntil('\n');
+  runWifiDiagnostic(wifiLastSelectedSsid(), password);
+}
+
 static void selectMenu() {
   switch (menuIndex) {
     case 0: wifiScan(settings.hiddenScan); break;
-    case 1: showChannelScan(); break;
-    case 2: showWifiSpectrum(); break;
-    case 3: showHiddenNetworks(); break;
-    case 4: showChannelOptimizer(); break;
-    case 5: runPacketMonitor(); break;
-    case 6: runDeauthDetector(); break;
-    case 7: bleScan(settings.bleScanMs / 1000); break;
-    case 8: beaconDetect(settings.bleScanMs / 1000); break;
-    case 9:
+    case 1:
+      if (wifiHasSelection()) showSignalMeter(wifiLastSelectedSsid(), wifiLastSelectedBssid(), 30000);
+      else uiMessage("Selecione uma rede no WiFi Analyzer primeiro.", "WIFI / SIGNAL");
+      break;
+    case 2: showChannelScan(); break;
+    case 3: showWifiSpectrum(); break;
+    case 4: showHiddenNetworks(); break;
+    case 5: if (wifiHasSelection()) showNetworkDetail(0); else uiMessage("Selecione uma rede no WiFi Analyzer primeiro.", "WIFI / DETAIL"); break;
+    case 6: showChannelOptimizer(); break;
+    case 7: runDiagnostic(); break;
+    case 8: runCaptivePortal(); break;
+    case 9: runPacketMonitor(); break;
+    case 10: runDeauthDetector(); break;
+    case 11: bleScan(settings.bleScanMs / 1000); break;
+    case 12: beaconDetect(settings.bleScanMs / 1000); break;
+    case 13:
       if (bleHasSelection()) bleInspectDevice(bleLastSelectedAddress());
       else uiMessage("Nenhum alvo BLE selecionado.\n\nAbra BLE Scanner e selecione um dispositivo primeiro.", "BLE / GATT");
       break;
-    case 10:
+    case 14:
       if (bleHasSelection()) bleProximityMonitor(bleLastSelectedAddress(), 15000);
       else uiMessage("Nenhum alvo BLE selecionado.\n\nAbra BLE Scanner e selecione um dispositivo primeiro.", "BLE / PROXIMITY");
       break;
-    case 11:
+    case 15:
       bleAdvertiserStart(0, 500);
       uiMessage("Advertiser ativo\n\nPerfil: generico\nIntervalo: 500 ms\nNome: " + settings.deviceName + "\n\nBACK retorna ao menu.", "BLE / ADVERTISER");
       bleAdvertiserStop();
       break;
-    case 12: {
+    case 16: {
       PasswordReport r = analyzePassword("exemplo-senha-123");
       uiMessage("Analise offline\nScore: " + String(r.score) + "/100\nEntropia: " + String(r.entropy, 1) + " bits\nComum: " + String(r.common ? "sim" : "nao") + "\nSequencia: " + String(r.hasSequence ? "sim" : "nao") + "\n\n" + passwordAdvice(r), "SECURITY / PASSWORD");
       break;
     }
-    case 13: showSystem(); break;
-    case 14: runSettings(); break;
-    case 15: uiMessage("ESP32 WiFi Toolkit v9.0\n\nDiagnostico WiFi/BLE, observacao passiva e utilitarios locais.\n\nSem ataques, captura de credenciais ou interferencia intencional.", "ABOUT"); break;
+    case 17: showSystem(); break;
+    case 18: runSettings(); break;
+    case 19: uiMessage("ESP32 WiFi Toolkit v9.0\n\nDiagnostico WiFi/BLE, observacao passiva e utilitarios locais.\n\nSem ataques, captura de credenciais ou interferencia intencional.", "ABOUT"); break;
   }
   delay(150);
   render();
