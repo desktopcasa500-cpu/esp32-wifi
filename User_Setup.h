@@ -7,5 +7,8 @@
 #define TFT_CS   15
 #define TFT_DC   2
 #define TFT_RST  4
+#define TFT_LED  27
 #define SPI_FREQUENCY 40000000
-#define USE_HSPI_PORT
+#define SPI_READ_FREQUENCY 20000000
+#define SPI_TOUCH_FREQUENCY 2500000
+#define TFT_RGB_ORDER TFT_BGR
