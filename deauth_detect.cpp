@@ -2,27 +2,31 @@
 #include <WiFi.h>
 #include "esp_wifi.h"
 
-static volatile uint32_t deauthCount = 0;
-static volatile uint32_t disassocCount = 0;
-static volatile int lastRssi = -127;
-static volatile uint8_t lastChannel = 0;
-static volatile bool running = false;
+namespace {
+volatile uint32_t deauthCount = 0;
+volatile uint32_t disassocCount = 0;
+volatile int lastRssi = -127;
+volatile uint8_t lastChannel = 0;
+volatile bool active = false;
 
-static void promiscuous(void* buf, wifi_promiscuous_pkt_type_t type) {
-  if (!running || !buf || type != WIFI_PKT_MGMT) return;
+void IRAM_ATTR onPacket(void* buffer, wifi_promiscuous_pkt_type_t type) {
+  if (!active || buffer == nullptr || type != WIFI_PKT_MGMT) return;
 
-  wifi_promiscuous_pkt_t* pkt = static_cast<wifi_promiscuous_pkt_t*>(buf);
-  if (pkt->rx_ctrl.sig_len < 2) return;
+  wifi_promiscuous_pkt_t* packet = static_cast<wifi_promiscuous_pkt_t*>(buffer);
+  if (packet->rx_ctrl.sig_len < 2) return;
 
-  const uint16_t fc = static_cast<uint16_t>(pkt->payload[0]) |
-                      (static_cast<uint16_t>(pkt->payload[1]) << 8);
-  const uint8_t subtype = (fc >> 4) & 0x0F;
+  const uint16_t frameControl =
+    static_cast<uint16_t>(packet->payload[0]) |
+    (static_cast<uint16_t>(packet->payload[1]) << 8);
+  const uint8_t frameType = static_cast<uint8_t>((frameControl >> 2) & 0x03);
+  const uint8_t subtype = static_cast<uint8_t>((frameControl >> 4) & 0x0F);
 
+  if (frameType != 0) return;
   if (subtype == 12) ++deauthCount;
   else if (subtype == 10) ++disassocCount;
   else return;
-
-  lastRssi = pkt->rx_ctrl.rssi;
+  lastRssi = packet->rx_ctrl.rssi;
+}
 }
 
 void deauthDetectorStart(uint8_t channel) {
@@ -33,17 +37,15 @@ void deauthDetectorStart(uint8_t channel) {
   lastChannel = (channel >= 1 && channel <= 13) ? channel : 0;
 
   WiFi.mode(WIFI_STA);
-  if (lastChannel) {
-    esp_wifi_set_channel(lastChannel, WIFI_SECOND_CHAN_NONE);
-  }
+  if (lastChannel) esp_wifi_set_channel(lastChannel, WIFI_SECOND_CHAN_NONE);
 
-  running = true;
-  esp_wifi_set_promiscuous_rx_cb(promiscuous);
+  esp_wifi_set_promiscuous_rx_cb(onPacket);
+  active = true;
   esp_wifi_set_promiscuous(true);
 }
 
 void deauthDetectorStop() {
-  running = false;
+  active = false;
   esp_wifi_set_promiscuous(false);
   esp_wifi_set_promiscuous_rx_cb(nullptr);
 }
