@@ -1,0 +1,20 @@
+#pragma once
+#include <Arduino.h>
+
+// Pequenos icones monocromaticos para telas 240x320. Cada bit representa um pixel.
+static const uint8_t ICON_WIFI[8] PROGMEM = {
+  0b00011000, 0b00111100, 0b01111110, 0b11011011,
+  0b00011000, 0b00111100, 0b00011000, 0b00000000
+};
+static const uint8_t ICON_BLE[8] PROGMEM = {
+  0b00011000, 0b01011010, 0b01111110, 0b00111100,
+  0b01111110, 0b01011010, 0b00011000, 0b00000000
+};
+static const uint8_t ICON_SIGNAL[8] PROGMEM = {
+  0b00000011, 0b00000111, 0b00001111, 0b00011111,
+  0b00111111, 0b01111111, 0b11111111, 0b00000000
+};
+static const uint8_t ICON_GEAR[8] PROGMEM = {
+  0b00111100, 0b01111110, 0b11011011, 0b11111111,
+  0b11111111, 0b11011011, 0b01111110, 0b00111100
+};
