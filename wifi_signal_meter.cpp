@@ -55,10 +55,7 @@ void showSignalMeter(const String& ssid, const String& bssid, uint32_t durationM
     tft.setTextColor(0xD6BA, TFT_BLACK);
     tft.drawString(ssid.length() ? ssid.substring(0, 20) : "<hidden>", 8, 38);
 
-    const int left = 12;
-    const int top = 62;
-    const int width = 296;
-    const int height = 90;
+    const int left = 12, top = 62, width = 296, height = 90;
     tft.drawRect(left, top, width, height, 0x39C7);
 
     if (historyCount > 1) {
@@ -74,14 +71,14 @@ void showSignalMeter(const String& ssid, const String& bssid, uint32_t durationM
     tft.setTextColor(TFT_WHITE, TFT_BLACK);
     if (current > -127) {
       tft.drawString(String(current) + " dBm", 12, 166);
-      tft.drawRightString(String(quality(current)) + "%", 307, 166);
+      tft.drawRightString(String(quality(current)) + "%", 307, 166, 2);
     } else {
       tft.drawString("not seen", 12, 166);
     }
 
     tft.setTextColor(0x7BEF, TFT_BLACK);
     tft.drawString("min " + String(samples ? minRssi : 0) + "  max " + String(samples ? maxRssi : 0), 12, 190);
-    tft.drawRightString(String(samples) + " samples", 307, 190);
+    tft.drawRightString(String(samples) + " samples", 307, 190, 2);
     uiFooter();
 
     const ButtonEvent be = buttonsRead();
