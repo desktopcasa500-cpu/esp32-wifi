@@ -21,16 +21,15 @@
 #define BTN_SELECT 25
 #define BTN_BACK   26
 
-#define TFT_WIDTH  320
-#define TFT_HEIGHT 240
+// Display geometry after TFT_eSPI rotation(1).
+#define UI_SCREEN_WIDTH  320
+#define UI_SCREEN_HEIGHT 240
 #define UI_HEADER_H 31
 #define UI_FOOTER_Y 211
 #define UI_FOOTER_H 29
 #define UI_TEXT_FONT 2
-#define UI_MAX_LINES 8
 
 #define WIFI_SCAN_MAX 64
-#define BLE_TARGET_LEN 18
 
 #define DEFAULT_WIFI_SCAN_MS 5000
 #define DEFAULT_BLE_SCAN_MS 5000
