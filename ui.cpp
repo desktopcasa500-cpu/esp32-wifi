@@ -1,21 +1,19 @@
 #include "ui.h"
 #include "config.h"
 #include "settings.h"
-#include "buttons.h"
 #include "touch.h"
 #include <WiFi.h>
 
 TFT_eSPI tft = TFT_eSPI();
 
 namespace {
-const uint16_t BG = 0x0000;
+const uint16_t BG = TFT_BLACK;
 const uint16_t BAR = 0x18E3;
 const uint16_t PANEL = 0x10A2;
 const uint16_t TEXT = 0xD6BA;
 const uint16_t MUTED = 0x7BEF;
 const uint16_t ACCENT = TFT_CYAN;
 const uint16_t GOOD = 0x05E0;
-const uint16_t WARN = 0xFD20;
 const uint16_t SELECTED = 0x2945;
 
 void drawWrapped(const String& text, int x, int y, int maxWidth, int lineHeight) {
@@ -30,8 +28,8 @@ void drawWrapped(const String& text, int x, int y, int maxWidth, int lineHeight)
     }
 
     String candidate = line + c;
-    if (tft.textWidth(candidate, UI_TEXT_FONT) > maxWidth && line.length()) {
-      if (y <= UI_FOOTER_Y - 8) tft.drawString(line, x, y, UI_TEXT_FONT);
+    if (tft.textWidth(candidate, 1) > maxWidth && line.length()) {
+      if (y <= UI_FOOTER_Y - 8) tft.drawString(line, x, y, 1);
       y += lineHeight;
       line = String(c);
     } else {
@@ -41,8 +39,8 @@ void drawWrapped(const String& text, int x, int y, int maxWidth, int lineHeight)
 }
 
 ButtonEvent readAnyInput() {
-  const ButtonEvent b = buttonsRead();
-  if (b != BE_NONE) return b;
+  const ButtonEvent button = buttonsRead();
+  if (button != BE_NONE) return button;
 
   switch (touchRead()) {
     case TOUCH_PREV: return BE_PREV;
@@ -57,9 +55,9 @@ ButtonEvent readAnyInput() {
 void uiBegin() {
   tft.init();
   tft.setRotation(1);
-  tft.setTextWrap(false, false);
   tft.setTextFont(UI_TEXT_FONT);
   tft.setTextSize(1);
+  tft.setTextWrap(false, false);
   tft.fillScreen(BG);
   uiSetBrightness(settings.brightness);
 }
@@ -70,21 +68,19 @@ void uiSetBrightness(uint8_t value) {
 }
 
 void uiHeader(const String& title, const String& status) {
-  tft.fillRect(0, 0, TFT_WIDTH, UI_HEADER_H, BAR);
-  tft.drawFastHLine(0, UI_HEADER_H - 1, TFT_WIDTH, ACCENT);
-
+  tft.fillRect(0, 0, UI_SCREEN_WIDTH, UI_HEADER_H, BAR);
+  tft.drawFastHLine(0, UI_HEADER_H - 1, UI_SCREEN_WIDTH, ACCENT);
   tft.setTextColor(TEXT, BAR);
-  tft.drawString(title.substring(0, 28), 8, 8, UI_TEXT_FONT);
-
+  tft.drawString(title.substring(0, 28), 8, 8, 1);
   if (status.length()) {
     tft.setTextColor(GOOD, BAR);
-    tft.drawRightString(status.substring(0, 9), 312, 8, UI_TEXT_FONT);
+    tft.drawRightString(status.substring(0, 9), 312, 8, 1);
   }
 }
 
 void uiFooter() {
-  tft.fillRect(0, UI_FOOTER_Y, TFT_WIDTH, UI_FOOTER_H, BAR);
-  tft.drawFastHLine(0, UI_FOOTER_Y, TFT_WIDTH, 0x4A69);
+  tft.fillRect(0, UI_FOOTER_Y, UI_SCREEN_WIDTH, UI_FOOTER_H, BAR);
+  tft.drawFastHLine(0, UI_FOOTER_Y, UI_SCREEN_WIDTH, 0x4A69);
   tft.setTextColor(MUTED, BAR);
   tft.drawString("PREV", 8, 219, 1);
   tft.drawCentreString("SELECT", 160, 219, 1);
@@ -98,14 +94,14 @@ void uiMessage(const String& text, const String& title) {
   drawWrapped(text, 8, 43, 304, 17);
   uiFooter();
 
-  // Wait for a fresh input, so the key that opened the screen is not reused.
   delay(80);
   while (readAnyInput() == BE_NONE) delay(8);
 }
 
 void uiMenu(const char* const items[], size_t count, int selected) {
   if (count == 0) return;
-  selected = constrain(selected, 0, static_cast<int>(count) - 1);
+  if (selected < 0) selected = 0;
+  if (selected >= static_cast<int>(count)) selected = static_cast<int>(count) - 1;
 
   tft.fillScreen(BG);
   uiHeader("ESP32 / TOOLKIT", WiFi.status() == WL_CONNECTED ? "LINK" : "LOCAL");
@@ -119,12 +115,10 @@ void uiMenu(const char* const items[], size_t count, int selected) {
     const int y = 39 + row * 24;
     const bool active = i == selected;
     const uint16_t bg = active ? SELECTED : BG;
-
     if (active) {
       tft.fillRoundRect(5, y - 3, 310, 21, 3, bg);
       tft.drawFastVLine(5, y - 3, 21, ACCENT);
     }
-
     tft.setTextColor(active ? TFT_WHITE : TEXT, bg);
     tft.drawString(String(i + 1) + "  " + String(items[i]).substring(0, 27), 12, y, 1);
   }
@@ -151,7 +145,7 @@ void uiProgress(const String& title, const String& detail, uint8_t percent) {
 void uiToast(const String& text, uint16_t ms) {
   const String shown = text.substring(0, 34);
   const int width = constrain(tft.textWidth(shown, 1) + 28, 120, 306);
-  const int x = (320 - width) / 2;
+  const int x = (UI_SCREEN_WIDTH - width) / 2;
   tft.fillRoundRect(x, 93, width, 31, 4, PANEL);
   tft.drawRoundRect(x, 93, width, 31, 4, ACCENT);
   tft.setTextColor(TFT_WHITE, PANEL);
