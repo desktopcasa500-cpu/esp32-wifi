@@ -71,14 +71,14 @@ static void drawScanList(const int* order, int count, int selected, int total) {
     tft.setTextColor(active ? TFT_WHITE : 0xD6BA, bg);
     tft.drawString(String(position + 1) + "  " + ssid, 12, y);
     tft.setTextColor(TFT_CYAN, bg);
-    tft.drawRightString(String(WiFi.RSSI(index)) + "dBm", 310, y);
+    tft.drawRightString(String(WiFi.RSSI(index)) + "dBm", 310, y, 2);
     tft.setTextColor(0x7BEF, bg);
     tft.drawString("CH " + String(WiFi.channel(index)) + "  " + String(signalPercent(WiFi.RSSI(index))) + "%  " + securityName(WiFi.encryptionType(index)), 22, y + 11);
   }
 
   tft.setTextColor(0x7BEF, TFT_BLACK);
   tft.drawString(String(total) + " networks", 8, 196);
-  tft.drawRightString(String(selected + 1) + "/" + String(count), 310, 196);
+  tft.drawRightString(String(selected + 1) + "/" + String(count), 310, 196, 2);
   uiFooter();
 }
 
