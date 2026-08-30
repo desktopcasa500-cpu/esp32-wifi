@@ -6,6 +6,8 @@
 #include "touch.h"
 
 static BLEScan* scanner = nullptr;
+static String lastAddress;
+static String lastName;
 
 static String deviceName(BLEAdvertisedDevice& d) {
   if (!d.haveName()) return "<unknown>";
@@ -27,13 +29,14 @@ static void drawBleList(BLEScanResults* results, int selected) {
     BLEAdvertisedDevice d = results->getDevice(index);
     const bool active = index == selected;
     const int y = 39 + i * 23;
+    const uint16_t bg = active ? 0x2945 : TFT_BLACK;
 
-    if (active) tft.fillRoundRect(5, y - 3, 310, 20, 2, 0x2945);
-    tft.setTextColor(active ? TFT_WHITE : 0xD6BA, active ? 0x2945 : TFT_BLACK);
+    if (active) tft.fillRoundRect(5, y - 3, 310, 20, 2, bg);
+    tft.setTextColor(active ? TFT_WHITE : 0xD6BA, bg);
     tft.drawString(String(index + 1) + "  " + deviceName(d).substring(0, 18), 12, y);
-    tft.setTextColor(TFT_CYAN, active ? 0x2945 : TFT_BLACK);
+    tft.setTextColor(TFT_CYAN, bg);
     tft.drawRightString(String(d.getRSSI()) + "dBm", 310, y);
-    tft.setTextColor(0x7BEF, active ? 0x2945 : TFT_BLACK);
+    tft.setTextColor(0x7BEF, bg);
     tft.drawString(String(d.getAddress().toString().c_str()), 22, y + 11);
   }
 
@@ -43,8 +46,7 @@ static void drawBleList(BLEScanResults* results, int selected) {
 }
 
 void bleScan(uint32_t seconds) {
-  if (seconds < 1) seconds = 1;
-  if (seconds > 15) seconds = 15;
+  seconds = constrain(seconds, 1UL, 15UL);
 
   BLEDevice::init("");
   scanner = BLEDevice::getScan();
@@ -56,11 +58,12 @@ void bleScan(uint32_t seconds) {
   uiHeader("BLE / SCAN");
   tft.setTextColor(TFT_CYAN, TFT_BLACK);
   tft.drawString("Scanning...", 8, 46);
+  tft.drawString(String(seconds) + " sec", 8, 68);
 
   BLEScanResults* results = scanner->start(seconds, false);
   const int total = results ? results->getCount() : 0;
   if (total == 0) {
-    uiMessage("Nenhum dispositivo BLE encontrado.\n\nTente novamente em uma area com dispositivos proximos.");
+    uiMessage("Nenhum dispositivo BLE encontrado.\n\nTente novamente.");
     scanner->clearResults();
     return;
   }
@@ -70,8 +73,8 @@ void bleScan(uint32_t seconds) {
   drawBleList(results, selected);
 
   while (!done) {
-    ButtonEvent be = buttonsRead();
-    TouchEvent te = touchRead();
+    const ButtonEvent be = buttonsRead();
+    const TouchEvent te = touchRead();
 
     if (be == BE_PREV || te == TOUCH_PREV) {
       selected = (selected + total - 1) % total;
@@ -81,11 +84,15 @@ void bleScan(uint32_t seconds) {
       drawBleList(results, selected);
     } else if (be == BE_SELECT || te == TOUCH_SELECT) {
       BLEAdvertisedDevice d = results->getDevice(selected);
-      String info = "Nome: " + deviceName(d) +
-                    "\nEndereco: " + String(d.getAddress().toString().c_str()) +
-                    "\nRSSI: " + String(d.getRSSI()) + " dBm" +
-                    "\nConnectable: " + String(d.isAdvertisingService(BLEUUID((uint16_t)0x1800)) ? "sim" : "desconhecido");
-      uiMessage(info, "BLE / DETAIL");
+      lastAddress = d.getAddress().toString().c_str();
+      lastName = deviceName(d);
+      uiMessage(
+        "Nome: " + lastName +
+        "\nEndereco: " + lastAddress +
+        "\nRSSI: " + String(d.getRSSI()) + " dBm" +
+        "\n\nAlvo salvo para GATT e Proximity.",
+        "BLE / TARGET"
+      );
       drawBleList(results, selected);
     } else if (be == BE_BACK || te == TOUCH_BACK) {
       done = true;
@@ -96,3 +103,7 @@ void bleScan(uint32_t seconds) {
   scanner->clearResults();
   uiToast("BLE scan encerrado");
 }
+
+String bleLastSelectedAddress() { return lastAddress; }
+String bleLastSelectedName() { return lastName; }
+bool bleHasSelection() { return lastAddress.length() > 0; }
